@@ -4,11 +4,20 @@
   "description": "A bridge between Serial SLIP, OSC UDP and OSC WebSocket",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron ."
   },
   "author": "Thomas O Fredericks",
   "license": "ISC",
   "devDependencies": {
     "electron": "^30.0.3"
+  },
+  "dependencies": {
+    "serialport": "^10.3.0",
+    "tableify": "^1.1.1"
+  },
+  "engines": {
+    "node": "v18.17.1",
+    "npm": "9.6.7"
   }
 }
