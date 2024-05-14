@@ -12,13 +12,126 @@
 
 <body>
     <h1>Hello World!</h1>
-
     We are using Node.js <span id="node-version"></span>, Chromium <span id="chrome-version"></span>, Electron <span id="electron-version"></span>, and Serialport <span id="serialport-version"></span>
 
     <div id="error"></div>
     <div id="ports"></div>
+
+    <label for="port-selector">Serial port</label>:
+    <select id="port-selector" name="port-selector" >
+    </select>
+    
+
+    <button id="connect-button" type="button" disabled>🔌 Connect</button>
+
 </body>
 
-<script src="./renderer.js"></script>
+<script>
+
+// All of the Node.js APIs are available in this process.
+const connectButton = document.getElementById ('connect-button');
+const portSelector = document.getElementById ('port-selector');
+
+const { SerialPort } = require('serialport');
+const tableify = require('tableify');
+const osc = require("osc");
+
+
+let oscSlip;
+
+async function listSerialPorts() {
+  await SerialPort.list().then((ports, err) => {
+    if(err) {
+      document.getElementById('error').textContent = err.message
+      return
+    } else {
+      document.getElementById('error').textContent = ''
+    }
+    console.log('ports', ports);
+
+    if (ports.length === 0) {
+      document.getElementById('error').textContent = 'No ports discovered'
+    } else {
+        connectButton.disabled = false;
+        // Empty the selector... this is gross how this is done...
+        portSelector.innerHTML = "";
+        ports.forEach(function (port) {
+            //const label = port.displayName || port.path;
+            const option = document.createElement("option");
+            option.text = port.displayName || port.path;
+            //option.value = "3"; // Optionally set a value
+            portSelector.add(option);
+
+            //let option = $("<option value=" + "'" + port.path + "'>" + label + "</option>");
+            //portSelector.append(option);
+        });
+    }
+
+    tableHTML = tableify(ports)
+    document.getElementById('ports').innerHTML = tableHTML
+  })
+}
+
+
+/*
+
+//
+// Set a timeout that will check for new serialPorts every 2 seconds.
+// This timeout reschedules itself.
+function listPorts() {
+  listSerialPorts();
+  setTimeout(listPorts, 2000);
+}
+setTimeout(listPorts, 2000);
+*/
+listSerialPorts();
+
+    function oscSlipOnMessage (oscMessage) {
+        console.log(oscMessage);
+    };
+
+function disconnectSerialPort() {
+    oscSlip.close();
+    oscSlip = undefined;
+    connectButton.innerText = '🔌 Connect';
+}
+
+function oscSlipOnOpen() {
+    connectButton.innerText = '🔌 Disconnect';
+}
+
+function oscSlipOnError() {
+    console.log("Error");
+    connectButton.innerText = '🔌 Connect';
+}
+
+function connectSerialPort() {
+    
+    const selectedPortPath =  portSelector.value;
+    console.log(selectedPortPath);    
+
+    // Instantiate a new OSC Serial Port.
+    oscSlip = new osc.SerialPort({
+        devicePath: selectedPortPath, bitrate:115200
+    });
+
+    // Listen for the message event and map the OSC message to the synth.
+    oscSlip.on("message", oscSlipOnMessage);
+    oscSlip.on("open", oscSlipOnOpen);
+    oscSlip.on("error", oscSlipOnError);
+
+    // Open the port.
+    oscSlip.open();
+};
+
+  connectButton.addEventListener('click', function () {
+    if ( oscSlip ) {
+        disconnectSerialPort();
+    } else {
+        connectSerialPort();
+    }
+  });
+
+</script>
 
 </html>
