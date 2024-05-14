@@ -32,7 +32,8 @@ function disconnectUdp() {
 function connectUdp() {
 	oscUdp = new osc.UDPPort({
 		localAddress: "0.0.0.0",
-		localPort: udpReceivePort
+		localPort: udpReceivePort,
+		metadata: true
 	});
 	oscUdp.on("ready", function () {
 		udpConnectButton.innerText = '📢 Disconnect UDP';
@@ -46,7 +47,7 @@ function connectUdp() {
 	});
 
 	oscUdp.on("message", function (oscMessage) {
-		console.log("From UDP "+oscMessage);
+		//console.log("From UDP "+oscMessage);
 		if ( oscSlip ) {
 			oscSlip.send(oscMessage);
 		}

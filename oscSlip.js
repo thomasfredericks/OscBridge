@@ -55,7 +55,7 @@ setTimeout(listPorts, 2000);
   listSerialPorts();
 
 function oscSlipOnMessage (oscMessage) {
-    console.log(oscMessage);
+    //console.log(oscMessage);
     if ( oscUdp) {
         oscUdp.send(oscMessage, udpSendIp, udpSendPort);
     }
@@ -83,7 +83,9 @@ function connectSerialPort() {
 
     // Instantiate a new OSC Serial Port.
     oscSlip = new osc.SerialPort({
-        devicePath: selectedPortPath, bitrate:115200
+        devicePath: selectedPortPath, 
+        bitrate:115200, 
+        metadata: true
     });
 
     // Listen for the message event and map the OSC message to the synth.
