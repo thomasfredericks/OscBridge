@@ -16,13 +16,23 @@
         <label for="serial-port-selector">SLIP Serial port</label>:
         <select id="serial-port-selector" name="serial-port-selector" >
         </select>
-
+        <br>
         <button id="connect-serial-button" type="button" disabled>🔌 Connect Serial</button>
 
         <div id="error"></div>
         <div id="ports"></div>
     </div>
     <div>
+
+        <label for="udp-receive-port">Receive Port:</label>
+        <input type="text" id="udp-receive-port" name="udp-receive-port" required value="127.0.0.1">
+<br>
+        <label for="udp-send-ip">Send IP Address:</label>
+        <input type="text" id="udp-send-ip" name="udp-send-ip" required value="8000">
+        <br>    
+        <label for="udp-send-port">Send Port:</label>
+        <input type="text" id="udp-send-port" name="udp-send-port" required value="8001">
+        <br>
         <button id="connect-udp-button" type="button">📢 Connect UDP</button>
     </div>
     <div>
@@ -43,6 +53,9 @@
     const serialConnectButton = document.getElementById ('connect-serial-button');
     const serialPathSelector = document.getElementById ('serial-port-selector');
     const udpConnectButton = document.getElementById ('connect-udp-button');
+    const udpSendIpInput = document.getElementById ('udp-send-ip');
+    const udpReceivePortInput = document.getElementById ('udp-receive-port');
+    const udpSendPortInput = document.getElementById ('udp-send-port');
     
     //let initialized = false;
     let serial;
@@ -88,6 +101,13 @@
         udp = data;
         if ( udp.opened ) udpConnectButton.innerText = '📢 Disconnect UDP';
         else udpConnectButton.innerText = '📢 Connect UDP';
+        udpSendIpInput.value = data.sendIp;
+        udpSendIpInput.defaultValue = data.sendIp;
+        udpSendPortInput.value = data.sendPort;
+        udpSendPortInput.defaultValue = data.sendPort;
+        udpReceivePortInput.value = data.receivePort;
+        udpReceivePortInput.defaultValue = data.receivePort;
+
     }
 
     ipcRenderer.on('message', (event, data) => {
@@ -126,10 +146,56 @@
             if ( udp.opened ) {
                 ipcRenderer.send('message', {target:"udp", cmd:"close"});
             } else {
-                ipcRenderer.send('message', {target:"udp", cmd:"open", args:{receivePort:udp.receivePort ,sendIp:udp.sendIp, sendPort:udp.sendPort}});
+                ipcRenderer.send('message', {target:"udp", cmd:"open", args:{receivePort:udpReceivePortInput.value,sendIp:udpSendIpInput.value, sendPort:udpSendPortInput.value}});
             }
     });
 
+    // Regular expression for validating IPv4 addresses
+const ipRegex = /^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/;
+// Regular expression for validating port numbers (0-65535)
+const portRegex = /^([0-9]|[1-9][0-9]{1,4})$/;
+
+function validateIpAddress(event) {
+    const ipInput = event.target;
+    const ipAddress = ipInput.value;
+    //const ipValidationResult = document.getElementById('ipValidationResult');
+    if (!ipRegex.test(ipAddress)) {
+        ipInput.value = ipInput.defaultValue;
+    } 
+}
+
+function validatePortNumber(event) {
+    const portInput = event.target;
+    const portNumber = portInput.value;
+    //const portValidationResult = document.getElementById('portValidationResult');
+    if (!portRegex.test(portNumber) || !(portNumber > 1023 && portNumber <= 65535)) {
+        portInput.value = portInput.defaultValue;
+    }
+}
+
+document.getElementById('udp-send-ip').addEventListener('blur', validateIpAddress);
+
+document.getElementById('udp-send-port').addEventListener('blur', validatePortNumber);
+document.getElementById('udp-receive-port').addEventListener('blur', validatePortNumber);
+/*
+document.getElementById('udpForm').addEventListener('submit', function(event) {
+    event.preventDefault(); // Prevent form submission
+
+    const ipAddress = document.getElementById('ipAddress').value;
+    const portNumber = document.getElementById('portNumber').value;
+    const formValidationResult = document.getElementById('formValidationResult');
+
+    // Check if both fields are valid
+    if (ipRegex.test(ipAddress) && portRegex.test(portNumber) && portNumber >=1023 && portNumber <= 65535) {
+        formValidationResult.textContent = 'Form is valid.';
+        formValidationResult.style.color = 'green';
+    } else {
+        formValidationResult.textContent = 'Form is invalid. Please correct the errors above.';
+        formValidationResult.style.color = 'red';
+    }
+});
+
+*/
 
 
 </script>
