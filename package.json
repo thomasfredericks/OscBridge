@@ -21,7 +21,10 @@
   },
   "dependencies": {
     "serialport": "^10.3.0",
-    "osc": "^2.4.4"
+    "osc": "^2.4.4",
+    "express": "^4.17.1",
+    "ws": "^7.5.3",
+    "electron-settings": "^4.0.4"
   },
   "engines": {
     "node": "v18.17.1",

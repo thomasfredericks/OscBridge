@@ -19,10 +19,6 @@
 
         <button id="connect-serial-button" type="button" disabled>🔌 Connect Serial</button>
 
-        <div>
-            We are using Node.js <span id="node-version"></span>, Chromium <span id="chrome-version"></span>, Electron <span id="electron-version"></span>, and Serialport <span id="serialport-version"></span>
-        </div>
-
         <div id="error"></div>
         <div id="ports"></div>
     </div>
@@ -30,18 +26,87 @@
         <button id="connect-udp-button" type="button">📢 Connect UDP</button>
     </div>
     <div>
-        🌐
+        <div>
+            <button id="connect-websocket-button" type="button">🌐 Connect WebSocket</button>
+        </div>
+        
     </div>
 
 </body>
 
 <script>
-    const osc = require("osc");
-    let oscSlip;
-    let oscUdp;
+    const { ipcRenderer } = require('electron');
+    
+    //const  express = require("express");
+    //const webSocket = require("ws");
+
+    const serialConnectButton = document.getElementById ('connect-serial-button');
+    const serialPathSelector = document.getElementById ('serial-port-selector');
+    const udpConnectButton = document.getElementById ('connect-udp-button');
+    
+    //let initialized = false;
+    let serial;
+    let udp;
+    let serialPaths;
+     
+
+     function updateSerialPaths(data) {
+      // SOME CHECKING SHOULD BE DONE...
+        serialPaths=data;  
+        serialConnectButton.disabled = true;
+        if (serialPaths.length > 0) {
+            serialConnectButton.disabled = false;
+            // Empty the selector... this is gross how this is done...
+            serialPathSelector.innerHTML = "";
+            // Fill the selector
+            serialPaths.forEach(function (path) {       
+                const option = document.createElement("option");            
+                option.text = path;    
+                // Set option as selected
+                //if ( path == serial.path) option.selected = true;        
+                serialPathSelector.add(option);
+            });       
+            if (!serial.connected) serialConnectButton.disabled = false;
+        }
+     }
+
+    function updateSerial(data) {
+        // SOME CHECKING SHOULD BE DONE...
+        serial=data;
+
+        
+    }
+
+    function updateUdp(data) {
+        // SOME CHECKING SHOULD BE DONE...
+        udp=data;
+        udpConnectButton.disabled = udp.connected;
+    }
+
+    ipcRenderer.on('message', (event, data) => {
+        if ( data.type == "init") {
+            updateSerialPaths(data.serialPaths);
+            updateSerial(data.serial);
+            updateUdp(data.udp);
+        } else if ( data.type == "connected") {
+             if (data.what == "serial") {
+                // SHOW THAT WE ARE CONNECTED
+            } else {
+                console.log("connected what?");
+            }
+        }
+    });
+
+    ipcRenderer.send('message', {type:"init"});
+
+    serialConnectButton.addEventListener('click', function () {
+            if ( serial.connected ) ipcRenderer.send('message', {type:"disconnect", what: "serial"});
+            else ipcRenderer.send('message', {type:"connect", what: "serial", serial:serial});
+    });
+
+
+
 </script>
 
-<script src="oscSlip.js"> </script>
-<script src="oscUdp.js"> </script>
 
 </html>
