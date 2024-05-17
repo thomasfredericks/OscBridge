@@ -66,17 +66,24 @@
                 //if ( path == serial.path) option.selected = true;        
                 serialPathSelector.add(option);
             });       
-            if (!serial.connected) serialConnectButton.disabled = false;
+            if (!serial.opened) serialConnectButton.disabled = false;
         }
      }
 
     function updateSerial(data) {
         // SOME CHECKING SHOULD BE DONE...
         serial=data;
-
-        
+        // ACTIVATE PROPER OPTION
+        for (let i = 0; i < serialPathSelector.options.length; i++) {
+        // Check if the option's text matches the specified text
+            if (serialPathSelector.options[i].text === serial.path) {
+                // Set the selectedIndex property to the index of the matching option
+                serialPathSelector.selectedIndex = i;
+                break;
+            }
+        }
     }
-
+    
     function updateUdp(data) {
         // SOME CHECKING SHOULD BE DONE...
         udp=data;
@@ -88,11 +95,17 @@
             updateSerialPaths(data.serialPaths);
             updateSerial(data.serial);
             updateUdp(data.udp);
-        } else if ( data.type == "connected") {
+        } else if ( data.type == "opened") {
              if (data.what == "serial") {
-                // SHOW THAT WE ARE CONNECTED
+                // SHOW THAT WE ARE OPEN
             } else {
-                console.log("connected what?");
+                console.log("opened what?");
+            }
+        } else if ( data.type == "closed") {
+            if (data.what == "serial") {
+                // SHOW THAT WE ARE CLOSED
+            } else {
+                console.log("closed what?");
             }
         }
     });
@@ -100,8 +113,8 @@
     ipcRenderer.send('message', {type:"init"});
 
     serialConnectButton.addEventListener('click', function () {
-            if ( serial.connected ) ipcRenderer.send('message', {type:"disconnect", what: "serial"});
-            else ipcRenderer.send('message', {type:"connect", what: "serial", serial:serial});
+            if ( serial.opened ) ipcRenderer.send('message', {type:"close", what: "serial"});
+            else ipcRenderer.send('message', {type:"open", what: "serial", serial:serial});
     });
 
 

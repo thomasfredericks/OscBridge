@@ -35,11 +35,10 @@ let status = {
 let serialPaths = [];
 
 let serial =  {
-    connected: false,
+    opened: false,
     baud: 57600,
     path: ""
 }
-
 
 
 async function getSerialPaths() {
@@ -65,7 +64,8 @@ async function getSerialPaths() {
 let udp =  {
     sendPort: 8001,
     receivePort: 8000,
-    sendIp: "127.0.0.1"
+    sendIp: "127.0.0.1",
+    opened: false
 }
 
 /*
@@ -85,7 +85,7 @@ function disconnectSerialPort() {
 
 function oscSlipOnOpen() {
     //serialConnectButton.innerText = '🔌 Disconnect Serial';
-    mainWindow.webContents.send('message', {type:"serial",serial:serial});
+    mainWindow.webContents.send('message', {type:"connected",what:"serial", serial:serial});
 }
 
 function oscSlipOnError() {
@@ -95,8 +95,6 @@ function oscSlipOnError() {
 
 function oscSlipConnect() {
     if ( oscSlip ) oscSlip.close();
-
-
 
             // Instantiate a new OSC Serial Port.
             oscSlip = new osc.SerialPort({
@@ -113,8 +111,6 @@ function oscSlipConnect() {
             // Open the port.
             oscSlip.open();
 }
-
-
 
 function createWindow() {
 
@@ -136,12 +132,12 @@ function createWindow() {
         if ( data.type == "init") {
             mainWindow.webContents.send('message', {type:"init",udp: udp, serial:serial, serialPaths:serialPaths});
         } else if (data.type == "get") {       
-            else console.log("get what?");
-        } else if ( data.type == "connect" ) {
+             console.log("get what?");
+        } else if ( data.type == "open" ) {
             if (data.what == "serial") {
                 oscSlipConnect();
             } else {
-                console.log("connect what?");
+                console.log("open what?");
             }
         } else {
             console.log("unknown message type");
