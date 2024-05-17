@@ -47,74 +47,87 @@
     //let initialized = false;
     let serial;
     let udp;
-    let serialPaths;
+    //let serialPaths;
      
+    function updateSerial(data) {
+        serial = data;
 
-     function updateSerialPaths(data) {
-      // SOME CHECKING SHOULD BE DONE...
-        serialPaths=data;  
         serialConnectButton.disabled = true;
-        if (serialPaths.length > 0) {
+        if (data.paths.length > 0) {
             serialConnectButton.disabled = false;
             // Empty the selector... this is gross how this is done...
             serialPathSelector.innerHTML = "";
             // Fill the selector
-            serialPaths.forEach(function (path) {       
+            data.paths.forEach(function (path) {       
                 const option = document.createElement("option");            
                 option.text = path;    
                 // Set option as selected
-                //if ( path == serial.path) option.selected = true;        
+                if ( path == data.path) option.selected = true;        
                 serialPathSelector.add(option);
             });       
-            if (!serial.opened) serialConnectButton.disabled = false;
-        }
-     }
-
-    function updateSerial(data) {
-        // SOME CHECKING SHOULD BE DONE...
-        serial=data;
+            if (!data.opened) serialConnectButton.disabled = false;
+        } 
+        
+        if ( serial.opened ) serialConnectButton.innerText = '🔌 Disconnect Serial';
+        else serialConnectButton.innerText = '🔌 Connect Serial';
+        
+/*
         // ACTIVATE PROPER OPTION
         for (let i = 0; i < serialPathSelector.options.length; i++) {
         // Check if the option's text matches the specified text
-            if (serialPathSelector.options[i].text === serial.path) {
+            if (serialPathSelector.options[i].text === data.serial.path) {
                 // Set the selectedIndex property to the index of the matching option
                 serialPathSelector.selectedIndex = i;
                 break;
             }
         }
+        */
     }
     
     function updateUdp(data) {
-        // SOME CHECKING SHOULD BE DONE...
-        udp=data;
-        udpConnectButton.disabled = udp.connected;
+        udp = data;
+        if ( udp.opened ) udpConnectButton.innerText = '📢 Disconnect UDP';
+        else udpConnectButton.innerText = '📢 Connect UDP';
     }
 
     ipcRenderer.on('message', (event, data) => {
-        if ( data.type == "init") {
-            updateSerialPaths(data.serialPaths);
-            updateSerial(data.serial);
-            updateUdp(data.udp);
-        } else if ( data.type == "opened") {
-             if (data.what == "serial") {
-                // SHOW THAT WE ARE OPEN
-            } else {
-                console.log("opened what?");
+
+        if ( data.target == "global") {
+            if ( data.cmd == "status" ) {
+                updateSerial(data.args.serial);
+                updateUdp(data.args.udp);
             }
-        } else if ( data.type == "closed") {
-            if (data.what == "serial") {
-                // SHOW THAT WE ARE CLOSED
-            } else {
-                console.log("closed what?");
+        } else if ( data.target == "serial") {
+            if ( data.cmd == "status" ) {
+                console.log(data.args.serial);
+                updateSerial(data.args.serial);
+            }
+        } else if ( data.target == "udp") {
+            if ( data.cmd == "status" ) {
+                console.log(data.args.udp);
+                updateUdp(data.args.udp);
             }
         }
+
+        
     });
 
-    ipcRenderer.send('message', {type:"init"});
+    ipcRenderer.send('message', {target:"global", cmd:"status"});
 
     serialConnectButton.addEventListener('click', function () {
-            if ( serial.opened ) ipcRenderer.send('message', {type:"close", what: "serial"});
-            else ipcRenderer.send('message', {type:"open", what: "serial", serial:serial});
+            if ( serial.opened ) {
+                ipcRenderer.send('message', {target:"serial", cmd:"close"});
+            } else {
+                ipcRenderer.send('message', {target:"serial", cmd:"open", args:{path:serialPathSelector.value,baud:115200}});
+            }
+    });
+
+    udpConnectButton.addEventListener('click', function () {
+            if ( udp.opened ) {
+                ipcRenderer.send('message', {target:"udp", cmd:"close"});
+            } else {
+                ipcRenderer.send('message', {target:"udp", cmd:"open", args:{receivePort:udp.receivePort ,sendIp:udp.sendIp, sendPort:udp.sendPort}});
+            }
     });
 
 

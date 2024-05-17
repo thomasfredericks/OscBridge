@@ -4,6 +4,8 @@ const url = require('url');
 const settings = require('electron-settings');
 const { SerialPort } = require('serialport');
 const osc = require("osc");
+const os = require("os");
+
 //const serial = require("./serial.js");
 
 // Keep a global reference of the window object, if you don't, the window will
@@ -32,14 +34,8 @@ let status = {
 // SERIAL
 /////////
 
-let serialPaths = [];
-
-let serial =  {
-    opened: false,
-    baud: 57600,
-    path: ""
-}
-
+let oscSlip = undefined;
+let serial = {path:"", baud:115200, opened:false, paths:[]};
 
 async function getSerialPaths() {
     let paths = [];
@@ -58,6 +54,61 @@ async function getSerialPaths() {
     return paths;
 }
 
+function oscSlipOnMessage (oscMessage) {
+    console.log(oscMessage);
+    /*
+    if ( oscUdp) {
+        oscUdp.send(oscMessage, udpSendIp, udpSendPort);
+    }
+    */
+};
+
+function oscSlipOnOpen() {
+    serial.opened = true;
+    
+    //serialConnectButton.innerText = '🔌 Disconnect Serial';
+    mainWindow.webContents.send('message', {target:"serial",cmd:"status", args:{serial:serial}});
+}
+
+
+
+function oscSlipClose() {
+    if ( oscSlip ) {
+        oscSlip.close();
+        oscSlip = undefined;
+        serial.opened = false;
+        mainWindow.webContents.send('message', {target:"serial",cmd:"status", args:{serial:serial}});
+    }
+}
+
+function oscSlipOnError() {
+    oscSlipClose();
+}
+
+function oscSlipOpen(path,baud) {
+
+        oscSlipClose();
+        serial.path = path;
+        serial.baud = baud;
+    
+        // Instantiate a new OSC Serial Port.
+        oscSlip = new osc.SerialPort({
+            devicePath: serial.path, 
+            bitrate: serial.baud, 
+            metadata: true
+        });
+
+        // Listen for the message event and map the OSC message to the synth.
+        oscSlip.on("open", oscSlipOnOpen); //serial.path = data.path;
+        oscSlip.on("error", oscSlipOnError);
+        oscSlip.on("message", oscSlipOnMessage);
+
+        // Open the port.
+        oscSlip.open();
+}
+
+
+
 // UDP
 /////////
 
@@ -68,49 +119,88 @@ let udp =  {
     opened: false
 }
 
-/*
-function oscSlipOnMessage (oscMessage) {
-    //console.log(oscMessage);
-    if ( oscUdp) {
-        oscUdp.send(oscMessage, udpSendIp, udpSendPort);
-    }
+let oscUdp;
+
+function getIPAddresses() {
+	
+	const interfaces = os.networkInterfaces();
+	const ipAddresses = [];
+
+	for (let deviceName in interfaces) {
+		let addresses = interfaces[deviceName];
+		for (let i = 0; i < addresses.length; i++) {
+			let addressInfo = addresses[i];
+			if (addressInfo.family === "IPv4" && !addressInfo.internal) {
+				ipAddresses.push(addressInfo.address);
+			}
+		}
+	}
+
+	return ipAddresses;
 };
 
-function disconnectSerialPort() {
-    oscSlip.close();
-    oscSlip = undefined;
-    serialConnectButton.innerText = '🔌 Connect Serial';
-}
-*/
 
-function oscSlipOnOpen() {
-    //serialConnectButton.innerText = '🔌 Disconnect Serial';
-    mainWindow.webContents.send('message', {type:"connected",what:"serial", serial:serial});
-}
-
-function oscSlipOnError() {
-    console.log("Error opening serial port");
-    //serialConnectButton.innerText = '🔌 Connect Serial';
+function oscUdpClose() {
+	if ( oscUdp) {
+        oscUdp.close();
+        oscUdp = undefined;
+        udp.opened = false;
+        mainWindow.webContents.send('message', {target:"udp",cmd:"status", args:{udp:udp}});
+    }
+    
 }
 
-function oscSlipConnect() {
-    if ( oscSlip ) oscSlip.close();
+function oscUdpOnReady() {
+   // udpConnectButton.innerText = '📢 Disconnect UDP';
+   udp.opened = true;
+    var ipAddresses = getIPAddresses();
 
-            // Instantiate a new OSC Serial Port.
-            oscSlip = new osc.SerialPort({
-                devicePath: data.path, 
-                bitrate:data.baud, 
-                metadata: true
-            });
+    console.log("Listening for OSC over UDP.");
+    ipAddresses.forEach(function (address) {
+        console.log(" Host:", address + ", Port:", oscUdp.options.localPort);
+    });
+    mainWindow.webContents.send('message', {target:"udp",cmd:"status", args:{udp:udp}});
 
-            // Listen for the message event and map the OSC message to the synth.
-            oscSlip.on("open", oscSlipOnOpen); //serial.path = data.path;
-            oscSlip.on("error", oscSlipOnError);
-            oscSlip.on("message", oscSlipOnMessage);
-
-            // Open the port.
-            oscSlip.open();
 }
+
+function oscUdpOnError() {
+    oscUdpClose();
+}
+
+function oscUdpOnMessage() {
+   /*
+   if ( oscSlip ) {
+			oscSlip.send(oscMessage);
+		}
+        */
+}
+
+
+
+function oscUdpOpen(receivePort, sendIp, sendPort) {
+
+    oscUdpClose();
+    udp.receivePort = receivePort;
+    udp.sendIp = sendIp;
+    udp.sendPort = sendPort;
+
+	oscUdp = new osc.UDPPort({
+		localAddress: "0.0.0.0",
+		localPort: udp.receivePort,
+		metadata: true
+	});
+	oscUdp.on("ready", oscUdpOnReady);
+
+	oscUdp.on("message", oscUdpOnMessage);
+
+	oscUdp.on("error", oscUdpOnError);
+
+	oscUdp.open();
+}
+
+
+// WINDOW
+//////////
 
 function createWindow() {
 
@@ -128,21 +218,25 @@ function createWindow() {
 
     // Handle message from renderer process
     ipcMain.on('message', (event, data) => {
-        
-        if ( data.type == "init") {
-            mainWindow.webContents.send('message', {type:"init",udp: udp, serial:serial, serialPaths:serialPaths});
-        } else if (data.type == "get") {       
-             console.log("get what?");
-        } else if ( data.type == "open" ) {
-            if (data.what == "serial") {
-                oscSlipConnect();
-            } else {
-                console.log("open what?");
-            }
-        } else {
-            console.log("unknown message type");
-        }
 
+        if ( data.target == "global") {
+            if ( data.cmd == "status" ) {
+                mainWindow.webContents.send('message', {target:"global",cmd:"status",args:{udp: udp, serial:serial}});
+            }
+        } else if ( data.target == "serial") {
+            if ( data.cmd == "open" ) {
+                oscSlipOpen(data.args.path ,data.args.baud);
+            } else if ( data.cmd == "close") {
+                oscSlipClose();
+            }
+        } else if ( data.target == "udp") {
+            if ( data.cmd == "open" ) {
+                oscUdpOpen(data.args.receivePort ,data.args.sendIp, data.args.sendPort);
+            } else if ( data.cmd == "close") {
+                oscUdpClose();
+            }
+        }
+        
         //console.log('Data received in the main process:', data);
         // You can process the data here and send a response back if needed
     });
@@ -204,7 +298,7 @@ function loadSettings() {
 
 async function start() {
     //loadSettings();
-    serialPaths= await getSerialPaths();
+    serial.paths= await getSerialPaths();
     createWindow();
 }
 
