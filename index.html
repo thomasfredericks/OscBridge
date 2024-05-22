@@ -88,13 +88,13 @@ body {
         
         <input type="text" id="udp-send-port" name="udp-send-port" required value="8001">
         <br>
-        <button id="connect-udp-button" type="button">📢 Connect UDP</button>
+        <button id="connect-udp-button" type="button">📢 Start UDP</button>
         
     </section>
     <hr>
     <section class="form-group">
        
-        <button id="connect-websocket-button" type="button">🌐 Connect WebSocket</button>
+        <button id="connect-websocket-button" type="button">🌐 Start WebSocket</button>
        
         
     </section>
@@ -156,8 +156,8 @@ body {
     
     function updateUdp(data) {
         udp = data;
-        if ( udp.opened ) udpConnectButton.innerText = '📢 Disconnect UDP';
-        else udpConnectButton.innerText = '📢 Connect UDP';
+        if ( udp.opened ) udpConnectButton.innerText = '📢 Stop UDP';
+        else udpConnectButton.innerText = '📢 Start UDP';
         udpSendIpInput.value = data.sendIp;
         udpSendIpInput.defaultValue = data.sendIp;
         udpSendPortInput.value = data.sendPort;
