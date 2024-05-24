@@ -15,6 +15,7 @@
             align-items: center;
             height: 100vh;
         }
+        /*
         .form-container {
             background-color: #fff;
             padding: 20px;
@@ -27,6 +28,7 @@
             margin-bottom: 20px;
             color: #333;
         }
+        */
         .form-group {
             margin-bottom: 15px;
         }
@@ -51,8 +53,10 @@
             border-color: #007BFF;
         }
         .form-group button {
+/*
             background-color: #007BFF;
             color: #fff;
+*/
             border: none;
             padding: 5px;
             border-radius: 5px;
@@ -113,7 +117,7 @@
             
             <input type="text" id="udp-send-port" name="udp-send-port"  value="8001" disabled>
             <br>
-            <button id="connect-udp-button" type="button">📢 Start UDP</button>
+            <button id="connect-udp-button" type="button" disabled>📢 Start UDP</button>
             
         </section>
         
@@ -122,7 +126,7 @@
             <label for="websocket-port">Port</label>
             <input type="text" id="websocket-port" name="websocket-port"  value="8080" disabled>
             <br>
-            <button id="connect-websocket-button" type="button">🌐 Start WebSocket</button>
+            <button id="connect-websocket-button" type="button" disabled>🌐 Start WebSocket</button>
             
             
         </section>
@@ -131,6 +135,13 @@
 
 <script>
     const { ipcRenderer } = require('electron');
+
+    let buttonColors = {
+        opened : { color: 'white', backgroundColor: 'MediumSeaGreen'},
+        closed : { color: 'black', backgroundColor: 'LightGray'},
+        opening : { color: 'black', backgroundColor: '#F4D03F '},
+        error : { color: 'white', backgroundColor: 'Tomato'},
+    }
     
     //const  express = require("express");
     //const webSocket = require("ws");
@@ -177,9 +188,18 @@
             
         } 
         
-        if ( serial.opened ) serialConnectButton.innerText = '🔌 Disconnect Serial';
-        else serialConnectButton.innerText = '🔌 Connect Serial';
-        
+        if ( serial.state == "opened" ) {
+            serialConnectButton.innerText = '🔌 Disconnect Serial';
+            
+        } else {
+            serialConnectButton.innerText = '🔌 Connect Serial';
+
+        }
+
+        serialConnectButton.style.backgroundColor = buttonColors[serial.state].backgroundColor;
+        serialConnectButton.style.color = buttonColors[serial.state].color;
+
+
         /*
         // ACTIVATE PROPER OPTION
         for (let i = 0; i < serialPathSelector.options.length; i++) {
@@ -195,7 +215,7 @@
     
     function updateUdp(data) {
         udp = data;
-        if ( udp.opened ) {
+        if ( udp.state == "opened"  ) {
             udpConnectButton.innerText = '📢 Stop UDP';
             udpSendIpInput.disabled = true;
             udpSendPortInput.disabled = true;
@@ -212,14 +232,21 @@
         udpSendPortInput.defaultValue = data.sendPort;
         udpReceivePortInput.value = data.receivePort;
         udpReceivePortInput.defaultValue = data.receivePort;
+
+        udpConnectButton.style.backgroundColor = buttonColors[udp.state].backgroundColor;
+        udpConnectButton.style.color = buttonColors[udp.state].color;
+
+        udpConnectButton.disabled = false;
         
     }
     
     function updateWebsocket(data) {
         websocket = data;
-        if ( websocket.opened ) {
+        if ( websocket.state == "opened" ) {
             webSocketConnectButton.innerText = '📢 Stop WebSocket';
             webSocketPortInput.disabled = true;
+        } else if (websocket.state == "opening" ) {
+            dgdfg
         } else {
             webSocketConnectButton.innerText  = '📢 Start WebSocket';
             webSocketPortInput.disabled= false;
@@ -227,7 +254,11 @@
         
         webSocketPortInput.value = data.port;
         webSocketPortInput.defaultValue = data.port;
+
+        webSocketConnectButton.style.backgroundColor = buttonColors[websocket.state].backgroundColor;
+        webSocketConnectButton.style.color = buttonColors[websocket.state].color;
         
+        webSocketConnectButton.disabled = false;
     }
     
     ipcRenderer.on('message', (event, data) => {
@@ -240,25 +271,31 @@
                 
                 if (!initialized) {
                     serialConnectButton.addEventListener('click', function () {
-                        if ( serial.opened ) {
+                        if ( serial.state == "opened"  ) {
+                            serialConnectButton.disabled = true;
                             ipcRenderer.send('message', {target:"serial", cmd:"close"});
                         } else {
+                            serialConnectButton.disabled = true;
                             ipcRenderer.send('message', {target:"serial", cmd:"open", args:{path:serialPathSelector.value,baud:parseInt(serialBaudSelector.value)}});
                         }
                     });
                     
                     udpConnectButton.addEventListener('click', function () {
-                        if ( udp.opened ) {
+                        if ( udp.state == "opened" ) {
+                            udpConnectButton.disabled = true;
                             ipcRenderer.send('message', {target:"udp", cmd:"close"});
                         } else {
+                            udpConnectButton.disabled = true;
                             ipcRenderer.send('message', {target:"udp", cmd:"open", args:{receivePort:udpReceivePortInput.value,sendIp:udpSendIpInput.value, sendPort:udpSendPortInput.value}});
                         }
                     });
                     
                     webSocketConnectButton.addEventListener('click', function () {
-                        if ( websocket.opened ) {
+                        if ( websocket.state == "opened" || websocket.state == "opening" ) {
+                            webSocketConnectButton.disabled = true;
                             ipcRenderer.send('message', {target:"websocket", cmd:"close"});
                         } else {
+                            webSocketConnectButton.disabled = true;
                             ipcRenderer.send('message', {target:"websocket", cmd:"open", args:{port:webSocketPortInput.value}});
                         }
                     });

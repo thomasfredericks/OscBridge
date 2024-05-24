@@ -36,7 +36,13 @@ let status = {
 /////////
 
 let oscSlip = undefined;
-let serial = {path:"", baud:115200, opened:false, paths:[]};
+
+let serial = {
+    path:"", 
+    baud:115200, 
+    paths:[],
+    state:"closed"
+};
 
 async function getSerialPaths() {
     let paths = [];
@@ -55,7 +61,12 @@ async function getSerialPaths() {
     return paths;
 }
 function oscSlipOnRaw(data,packetInfo) {
+    console.log(`Received serial message: ${data}`);
     if ( oscUdp )  oscUdp.sendRaw(data);
+    clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.sendRaw(data);
+    }});
 }
 
 /*
@@ -70,8 +81,7 @@ function oscSlipOnMessage (oscMessage) {
 */
 
 function oscSlipOnOpen() {
-    serial.opened = true;
-    
+    serial.state = "opened";
     //serialConnectButton.innerText = '🔌 Disconnect Serial';
     mainWindow.webContents.send('message', {target:"serial",cmd:"status", args:{serial:serial}});
 }
@@ -82,13 +92,15 @@ function oscSlipClose() {
     if ( oscSlip ) {
         oscSlip.close();
         oscSlip = undefined;
-        serial.opened = false;
+        serial.state = "closed";
         mainWindow.webContents.send('message', {target:"serial",cmd:"status", args:{serial:serial}});
     }
 }
 
 function oscSlipOnError() {
-    oscSlipClose();
+    oscSlip = undefined;
+        serial.state = "error";
+        mainWindow.webContents.send('message', {target:"serial",cmd:"status", args:{serial:serial}});
 }
 
 function oscSlipOpen(path,baud) {
@@ -123,7 +135,7 @@ let udp =  {
     sendPort: 8001,
     receivePort: 8000,
     sendIp: "127.0.0.1",
-    opened: false
+    state: "closed"
 }
 
 let oscUdp;
@@ -151,15 +163,21 @@ function oscUdpClose() {
     if ( oscUdp) {
         oscUdp.close();
         oscUdp = undefined;
-        udp.opened = false;
+        udp.state = "closed";
         mainWindow.webContents.send('message', {target:"udp",cmd:"status", args:{udp:udp}});
     }
 
 }
 
+function oscUdpOnError() {
+    oscUdp = undefined;
+        udp.state = "error";
+        mainWindow.webContents.send('message', {target:"udp",cmd:"status", args:{udp:udp}});
+}
+
 function oscUdpOnReady() {
     // udpConnectButton.innerText = '📢 Disconnect UDP';
-    udp.opened = true;
+    udp.state = "opened";
     var ipAddresses = getIPAddresses();
     
     console.log("Listening for OSC over UDP.");
@@ -170,12 +188,14 @@ function oscUdpOnReady() {
     
 }
 
-function oscUdpOnError() {
-    oscUdpClose();
-}
+
 
 function oscUdpOnRaw(data,packetInfo) {
+    console.log(`Received udp message: ${data}`);
     if ( oscSlip )  oscSlip.sendRaw(data);
+    clients.forEach((client) => {
+        client.sendRaw(data);
+    });
 }
 
 /*
@@ -199,7 +219,9 @@ function oscUdpOpen(receivePort, sendIp, sendPort) {
     oscUdp = new osc.UDPPort({
         localAddress: "0.0.0.0",
         localPort: udp.receivePort,
-        metadata: true
+        metadata: true,
+        remotePort: udp.sendPort,
+        remoteAddress: udp.sendIp
     });
     oscUdp.on("ready", oscUdpOnReady);
     
@@ -217,7 +239,7 @@ function oscUdpOpen(receivePort, sendIp, sendPort) {
 
 let websocket =  {
     port: 8080 ,
-    opened: false
+    state: "closed"
 }
 
 const clients = new Set();
@@ -229,7 +251,7 @@ function oscWebSocketClose() {
         clients.clear();
         wss.close();
         wss = undefined;
-        websocket.opened = false;
+        websocket.state = "closed";
         mainWindow.webContents.send('message', {target:"websocket",cmd:"status", args:{websocket:websocket}});
     }
 }
@@ -238,10 +260,12 @@ function oscWebSocketOpen(port) {
     
     oscWebSocketClose();
     wss = new WebSocket.Server({ port: websocket.port });
+    websocket.state = "opening";
+    mainWindow.webContents.send('message', {target:"websocket",cmd:"status", args:{websocket:websocket}});
 
     wss.on('listening', () => {
         console.log('WebSocket server is listening on port '+websocket.port);
-        websocket.opened = true;
+        websocket.state = "opened";
         mainWindow.webContents.send('message', {target:"websocket",cmd:"status", args:{websocket:websocket}});
       });
     
@@ -257,12 +281,20 @@ function oscWebSocketOpen(port) {
         // Add the new oscWebSocket to the set
         clients.add(oscWebSocket);
         console.log(clients.size);
-        
+
+
         // Listen for messages from the client
         oscWebSocket.on('raw', (data,packetInfo) => {
-            console.log(`Received message: ${data}`);
+            console.log(`Received webscoket message: ${data}`);
             // Echo the message back to the client
             //ws.send(`You said: ${message}`);
+            clients.forEach((client) => {
+                if (client !== oscWebSocket && client.readyState === WebSocket.OPEN) {
+                  client.sendRaw(data);
+                }
+            });
+            if ( oscSlip )  oscSlip.sendRaw(data);
+            if ( oscUdp)  oscUdp.sendRaw(data);
         });
         
         // Handle connection close
@@ -285,7 +317,7 @@ function createWindow() {
     
     // Create the browser window.
     mainWindow = new BrowserWindow({
-        width: 800,
+        width: 260,
         height: 600, 
         backgroundColor: "#ccc",
         webPreferences: {
@@ -337,7 +369,7 @@ function createWindow() {
     }))
     
     // Open the DevTools.
-    mainWindow.webContents.openDevTools()
+    //mainWindow.webContents.openDevTools()
     
     // Emitted when the window is closed.
     mainWindow.on('closed', function() {
