@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <title>OscBridge</title>
     <style>
-body {
+        body {
             font-family: Arial, sans-serif;
             background-color: #f4f4f9;
             margin: 0;
@@ -30,6 +30,11 @@ body {
         .form-group {
             margin-bottom: 15px;
         }
+        .form-group h3 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 5px;
+        }
         .form-group label {
             display: block;
             
@@ -37,7 +42,7 @@ body {
         }
         .form-group input {
             width: 100%;
-            padding: 8px;
+            padding: 3px;
             box-sizing: border-box;
             border: 1px solid #ccc;
             border-radius: 5px;
@@ -49,56 +54,79 @@ body {
             background-color: #007BFF;
             color: #fff;
             border: none;
-            padding: 10px;
+            padding: 5px;
             border-radius: 5px;
             margin-top: 10px;
             cursor: pointer;
             width: 100%;
         }
+        /*
         .form-group button:hover {
             background-color: #0056b3;
         }
+        */
     </style>
 </head>
 
 <body>
     <div class="form-container">
-        <h2>Connection Settings</h2>
-    <section class="form-group">
-        <label for="serial-port-selector">Serial port</label>
-        <select id="serial-port-selector" name="serial-port-selector" >
-        </select>
-        <br>
-        <button id="connect-serial-button" type="button" disabled>🔌 Connect Serial</button>
-    
-       
-    </section>
-    <hr>
-    <section class="form-group">
-
-        <label for="udp-receive-port">Receive Port</label>
-   
-        <input type="text" id="udp-receive-port" name="udp-receive-port" required value="127.0.0.1">
+        <section class="form-group">
+            <h3>Serial Settings</h3>
+            
+            <label for="serial-port-selector">Port</label>
+            <select id="serial-port-selector" name="serial-port-selector" disabled>
+            </select>
+            <label for="serial-baud-selector">Baud</label>
+            <select id="serial-baud-selector" name="serial-baud-selector" disabled>
+                <option>9600</option>
+                <option>19200</option>
+                <option>31250</option>
+                <option>38400</option>
+                <option>57600</option>
+                <option>74880</option>
+                <option selected>115200</option>
+                <option>230400</option>
+                <option>250000</option>
+                <option>460800</option>
+                <option>500000</option>
+                <option>921600</option>
+                <option>1000000</option>
+                <option>3000000</option>
+            </select>
+            <br>
+            <button id="connect-serial-button" type="button" disabled>🔌 Connect Serial</button>
+            
+            
+        </section>
         
-        <label for="udp-send-ip">Send IP Address</label>
+        <section class="form-group">
+            <h3>UDP Settings</h3>
+            <label for="udp-receive-port">Receive Port</label>
+            
+            <input type="text" id="udp-receive-port" name="udp-receive-port"  value="127.0.0.1" disabled>
+            
+            <label for="udp-send-ip">Send IP Address</label>
+            
+            <input type="text" id="udp-send-ip" name="udp-send-ip"  value="8000" disabled>
+            
+            <label for="udp-send-port">Send Port</label>
+            
+            <input type="text" id="udp-send-port" name="udp-send-port"  value="8001" disabled>
+            <br>
+            <button id="connect-udp-button" type="button">📢 Start UDP</button>
+            
+        </section>
         
-        <input type="text" id="udp-send-ip" name="udp-send-ip" required value="8000">
-         
-        <label for="udp-send-port">Send Port</label>
-        
-        <input type="text" id="udp-send-port" name="udp-send-port" required value="8001">
-        <br>
-        <button id="connect-udp-button" type="button">📢 Start UDP</button>
-        
-    </section>
-    <hr>
-    <section class="form-group">
-       
-        <button id="connect-websocket-button" type="button">🌐 Start WebSocket</button>
-       
-        
-    </section>
-</div>
+        <section class="form-group">
+            <h3>WebSocket Settings</h3>
+            <label for="websocket-port">Port</label>
+            <input type="text" id="websocket-port" name="websocket-port"  value="8080" disabled>
+            <br>
+            <button id="connect-websocket-button" type="button">🌐 Start WebSocket</button>
+            
+            
+        </section>
+    </div>
 </body>
 
 <script>
@@ -106,25 +134,36 @@ body {
     
     //const  express = require("express");
     //const webSocket = require("ws");
-
+    
     const serialConnectButton = document.getElementById ('connect-serial-button');
     const serialPathSelector = document.getElementById ('serial-port-selector');
+    const serialBaudSelector = document.getElementById ('serial-baud-selector');
+    
     const udpConnectButton = document.getElementById ('connect-udp-button');
     const udpSendIpInput = document.getElementById ('udp-send-ip');
     const udpReceivePortInput = document.getElementById ('udp-receive-port');
     const udpSendPortInput = document.getElementById ('udp-send-port');
     
-    //let initialized = false;
+    const webSocketConnectButton = document.getElementById ('connect-websocket-button');
+    const webSocketPortInput = document.getElementById ('websocket-port');
+    
+    
     let serial;
     let udp;
-    //let serialPaths;
-     
+    let websocket;
+    let initialized = false;
+    
+    
     function updateSerial(data) {
         serial = data;
-
+        
         serialConnectButton.disabled = true;
+        serialPathSelector.disabled = true;
+        serialBaudSelector.disabled = true;
         if (data.paths.length > 0) {
             serialConnectButton.disabled = false;
+            serialPathSelector.disabled = false;
+            serialBaudSelector.disabled = false;
             // Empty the selector... this is gross how this is done...
             serialPathSelector.innerHTML = "";
             // Fill the selector
@@ -135,16 +174,16 @@ body {
                 if ( path == data.path) option.selected = true;        
                 serialPathSelector.add(option);
             });       
-            if (!data.opened) serialConnectButton.disabled = false;
+            
         } 
         
         if ( serial.opened ) serialConnectButton.innerText = '🔌 Disconnect Serial';
         else serialConnectButton.innerText = '🔌 Connect Serial';
         
-/*
+        /*
         // ACTIVATE PROPER OPTION
         for (let i = 0; i < serialPathSelector.options.length; i++) {
-        // Check if the option's text matches the specified text
+            // Check if the option's text matches the specified text
             if (serialPathSelector.options[i].text === data.serial.path) {
                 // Set the selectedIndex property to the index of the matching option
                 serialPathSelector.selectedIndex = i;
@@ -156,105 +195,148 @@ body {
     
     function updateUdp(data) {
         udp = data;
-        if ( udp.opened ) udpConnectButton.innerText = '📢 Stop UDP';
-        else udpConnectButton.innerText = '📢 Start UDP';
+        if ( udp.opened ) {
+            udpConnectButton.innerText = '📢 Stop UDP';
+            udpSendIpInput.disabled = true;
+            udpSendPortInput.disabled = true;
+            udpReceivePortInput.disabled = true;
+        } else {
+            udpConnectButton.innerText = '📢 Start UDP';
+            udpSendIpInput.disabled = false;
+            udpSendPortInput.disabled = false;
+            udpReceivePortInput.disabled = false;
+        }
         udpSendIpInput.value = data.sendIp;
         udpSendIpInput.defaultValue = data.sendIp;
         udpSendPortInput.value = data.sendPort;
         udpSendPortInput.defaultValue = data.sendPort;
         udpReceivePortInput.value = data.receivePort;
         udpReceivePortInput.defaultValue = data.receivePort;
-
+        
     }
-
+    
+    function updateWebsocket(data) {
+        websocket = data;
+        if ( websocket.opened ) {
+            webSocketConnectButton.innerText = '📢 Stop WebSocket';
+            webSocketPortInput.disabled = true;
+        } else {
+            webSocketConnectButton.innerText  = '📢 Start WebSocket';
+            webSocketPortInput.disabled= false;
+        }
+        
+        webSocketPortInput.value = data.port;
+        webSocketPortInput.defaultValue = data.port;
+        
+    }
+    
     ipcRenderer.on('message', (event, data) => {
-
+        
         if ( data.target == "global") {
             if ( data.cmd == "status" ) {
                 updateSerial(data.args.serial);
                 updateUdp(data.args.udp);
+                updateWebsocket(data.args.websocket);
+                
+                if (!initialized) {
+                    serialConnectButton.addEventListener('click', function () {
+                        if ( serial.opened ) {
+                            ipcRenderer.send('message', {target:"serial", cmd:"close"});
+                        } else {
+                            ipcRenderer.send('message', {target:"serial", cmd:"open", args:{path:serialPathSelector.value,baud:parseInt(serialBaudSelector.value)}});
+                        }
+                    });
+                    
+                    udpConnectButton.addEventListener('click', function () {
+                        if ( udp.opened ) {
+                            ipcRenderer.send('message', {target:"udp", cmd:"close"});
+                        } else {
+                            ipcRenderer.send('message', {target:"udp", cmd:"open", args:{receivePort:udpReceivePortInput.value,sendIp:udpSendIpInput.value, sendPort:udpSendPortInput.value}});
+                        }
+                    });
+                    
+                    webSocketConnectButton.addEventListener('click', function () {
+                        if ( websocket.opened ) {
+                            ipcRenderer.send('message', {target:"websocket", cmd:"close"});
+                        } else {
+                            ipcRenderer.send('message', {target:"websocket", cmd:"open", args:{port:webSocketPortInput.value}});
+                        }
+                    });
+                }
+                initialized = true;
             }
         } else if ( data.target == "serial") {
             if ( data.cmd == "status" ) {
-                console.log(data.args.serial);
+                //console.log(data.args.serial);
                 updateSerial(data.args.serial);
             }
         } else if ( data.target == "udp") {
             if ( data.cmd == "status" ) {
-                console.log(data.args.udp);
+                //console.log(data.args.udp);
                 updateUdp(data.args.udp);
             }
+        } else if ( data.target == "websocket") {
+            if ( data.cmd == "status" ) {
+                //console.log(data.args.udp);
+                updateWebsocket(data.args.websocket);
+            }
         }
-
+        
         
     });
-
+    
     ipcRenderer.send('message', {target:"global", cmd:"status"});
-
-    serialConnectButton.addEventListener('click', function () {
-            if ( serial.opened ) {
-                ipcRenderer.send('message', {target:"serial", cmd:"close"});
-            } else {
-                ipcRenderer.send('message', {target:"serial", cmd:"open", args:{path:serialPathSelector.value,baud:115200}});
-            }
-    });
-
-    udpConnectButton.addEventListener('click', function () {
-            if ( udp.opened ) {
-                ipcRenderer.send('message', {target:"udp", cmd:"close"});
-            } else {
-                ipcRenderer.send('message', {target:"udp", cmd:"open", args:{receivePort:udpReceivePortInput.value,sendIp:udpSendIpInput.value, sendPort:udpSendPortInput.value}});
-            }
-    });
-
+    
+    
+    
     // Regular expression for validating IPv4 addresses
-const ipRegex = /^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/;
-// Regular expression for validating port numbers (0-65535)
-const portRegex = /^([0-9]|[1-9][0-9]{1,4})$/;
-
-function validateIpAddress(event) {
-    const ipInput = event.target;
-    const ipAddress = ipInput.value;
-    //const ipValidationResult = document.getElementById('ipValidationResult');
-    if (!ipRegex.test(ipAddress)) {
-        ipInput.value = ipInput.defaultValue;
-    } 
-}
-
-function validatePortNumber(event) {
-    const portInput = event.target;
-    const portNumber = portInput.value;
-    //const portValidationResult = document.getElementById('portValidationResult');
-    if (!portRegex.test(portNumber) || !(portNumber > 1023 && portNumber <= 65535)) {
-        portInput.value = portInput.defaultValue;
+    const ipRegex = /^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/;
+    // Regular expression for validating port numbers (0-65535)
+    const portRegex = /^([0-9]|[1-9][0-9]{1,4})$/;
+    
+    function validateIpAddress(event) {
+        const ipInput = event.target;
+        const ipAddress = ipInput.value;
+        //const ipValidationResult = document.getElementById('ipValidationResult');
+        if (!ipRegex.test(ipAddress)) {
+            ipInput.value = ipInput.defaultValue;
+        } 
     }
-}
-
-document.getElementById('udp-send-ip').addEventListener('blur', validateIpAddress);
-
-document.getElementById('udp-send-port').addEventListener('blur', validatePortNumber);
-document.getElementById('udp-receive-port').addEventListener('blur', validatePortNumber);
-/*
-document.getElementById('udpForm').addEventListener('submit', function(event) {
-    event.preventDefault(); // Prevent form submission
-
-    const ipAddress = document.getElementById('ipAddress').value;
-    const portNumber = document.getElementById('portNumber').value;
-    const formValidationResult = document.getElementById('formValidationResult');
-
-    // Check if both fields are valid
-    if (ipRegex.test(ipAddress) && portRegex.test(portNumber) && portNumber >=1023 && portNumber <= 65535) {
-        formValidationResult.textContent = 'Form is valid.';
-        formValidationResult.style.color = 'green';
-    } else {
-        formValidationResult.textContent = 'Form is invalid. Please correct the errors above.';
-        formValidationResult.style.color = 'red';
+    
+    function validatePortNumber(event) {
+        const portInput = event.target;
+        const portNumber = portInput.value;
+        //const portValidationResult = document.getElementById('portValidationResult');
+        if (!portRegex.test(portNumber) || !(portNumber > 1023 && portNumber <= 65535)) {
+            portInput.value = portInput.defaultValue;
+        }
     }
-});
-
-*/
-
-
+    
+    document.getElementById('udp-send-ip').addEventListener('blur', validateIpAddress);
+    document.getElementById('udp-send-port').addEventListener('blur', validatePortNumber);
+    document.getElementById('udp-receive-port').addEventListener('blur', validatePortNumber);
+    document.getElementById('websocket-port').addEventListener('blur', validatePortNumber);
+    /*
+    document.getElementById('udpForm').addEventListener('submit', function(event) {
+        event.preventDefault(); // Prevent form submission
+        
+        const ipAddress = document.getElementById('ipAddress').value;
+        const portNumber = document.getElementById('portNumber').value;
+        const formValidationResult = document.getElementById('formValidationResult');
+        
+        // Check if both fields are valid
+        if (ipRegex.test(ipAddress) && portRegex.test(portNumber) && portNumber >=1023 && portNumber <= 65535) {
+            formValidationResult.textContent = 'Form is valid.';
+            formValidationResult.style.color = 'green';
+        } else {
+            formValidationResult.textContent = 'Form is invalid. Please correct the errors above.';
+            formValidationResult.style.color = 'red';
+        }
+    });
+    
+    */
+    
+    
 </script>
 
 
