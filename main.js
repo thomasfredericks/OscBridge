@@ -60,6 +60,7 @@ async function getSerialPaths() {
     
     return paths;
 }
+/*
 function oscSlipOnRaw(data,packetInfo) {
     //console.log(`Received serial message: ${data}`);
     if ( oscUdp )  oscUdp.sendRaw(data);
@@ -70,17 +71,17 @@ function oscSlipOnRaw(data,packetInfo) {
 
     
 }
+*/
 
-/*
 function oscSlipOnMessage (oscMessage) {
-    console.log(oscMessage);
-    
-    if ( oscUdp) {
-        oscUdp.send(oscMessage, udpSendIp, udpSendPort);
-    }
+    if ( oscUdp )  oscUdp.send(oscMessage);
+    clients.forEach((client) => {
+        
+          client.send(oscMessage);
+    });
     
 };
-*/
+
 
 function oscSlipOnOpen() {
     serial.state = "opened";
@@ -91,19 +92,24 @@ function oscSlipOnOpen() {
 
 
 
-function oscSlipClose() {
+function oscSlipClose(fromError) {
+    fromError =  fromError || false;
     if ( oscSlip ) {
         oscSlip.close();
         oscSlip = undefined;
-        serial.state = "closed";
+        if ( fromError == true ) {
+            serial.state = "error";
+        } else {
+            
+            serial.state = "closed";
+        }
         mainWindow.webContents.send('message', {target:"serial",cmd:"status", args:{serial:serial}});
     }
 }
 
-function oscSlipOnError() {
-    oscSlip = undefined;
-        serial.state = "error";
-        mainWindow.webContents.send('message', {target:"serial",cmd:"status", args:{serial:serial}});
+function oscSlipOnError(error) {
+    console.log(error);
+    oscSlipClose(true);
 }
 
 function oscSlipOpen(path,baud) {
@@ -122,8 +128,8 @@ function oscSlipOpen(path,baud) {
     // Listen for the message event and map the OSC message to the synth.
     oscSlip.on("open", oscSlipOnOpen); //serial.path = data.path;
     oscSlip.on("error", oscSlipOnError);
-    //oscSlip.on("message", oscSlipOnMessage);
-    oscSlip.on("raw", oscSlipOnRaw);
+    oscSlip.on("message", oscSlipOnMessage);
+    //oscSlip.on("raw", oscSlipOnRaw);
     
     // Open the port.
     oscSlip.open();
@@ -162,20 +168,25 @@ function getIPAddresses() {
 };
 
 
-function oscUdpClose() {
+function oscUdpClose(fromError) {
+    fromError =  fromError || false;
     if ( oscUdp) {
         oscUdp.close();
         oscUdp = undefined;
-        udp.state = "closed";
+        if ( fromError ) {
+            udp.state = "error";
+        } else {
+            
+            udp.state = "closed";
+        }
         mainWindow.webContents.send('message', {target:"udp",cmd:"status", args:{udp:udp}});
     }
 
 }
 
-function oscUdpOnError() {
-    oscUdp = undefined;
-        udp.state = "error";
-        mainWindow.webContents.send('message', {target:"udp",cmd:"status", args:{udp:udp}});
+function oscUdpOnError(error) {
+    console.log(error);
+    oscUdpClose(true);
 }
 
 function oscUdpOnReady() {
@@ -192,7 +203,7 @@ function oscUdpOnReady() {
 }
 
 
-
+/*
 function oscUdpOnRaw(data,packetInfo) {
     console.log(`Received udp message: ${data}`);
     if ( oscSlip )  {
@@ -203,16 +214,21 @@ function oscUdpOnRaw(data,packetInfo) {
         client.sendRaw(data);
     });
 }
+*/
 
-/*
-function oscUdpOnMessage() {
+function oscUdpOnMessage(message) {
     
-    if ( oscSlip ) {
-        oscSlip.send(oscMessage);
+ //console.log(`Received udp message: ${message}`);
+    if ( oscSlip )  {
+        //console.log(`Sending to serial: ${message}`);
+        oscSlip.send(message);
     }
+    clients.forEach((client) => {
+        client.send(message);
+    });
     
 }
-*/
+
 
 
 function oscUdpOpen(receivePort, sendIp, sendPort) {
@@ -231,8 +247,8 @@ function oscUdpOpen(receivePort, sendIp, sendPort) {
     });
     oscUdp.on("ready", oscUdpOnReady);
     
-    //oscUdp.on("message", oscUdpOnMessage);
-    oscUdp.on("raw", oscUdpOnRaw);
+    oscUdp.on("message", oscUdpOnMessage);
+    //oscUdp.on("raw", oscUdpOnRaw);
     
     oscUdp.on("error", oscUdpOnError);
     
@@ -281,7 +297,8 @@ function oscWebSocketOpen(port) {
         
 
         let oscWebSocket = new osc.WebSocketPort({
-            socket: ws
+            socket: ws,
+            metadata: true
         });
         
         // Add the new oscWebSocket to the set
@@ -290,6 +307,7 @@ function oscWebSocketOpen(port) {
 
 
         // Listen for messages from the client
+/*
         oscWebSocket.on('raw', (data,packetInfo) => {
             console.log(`Received webscoket message: ${data}`);
             // Echo the message back to the client
@@ -302,6 +320,22 @@ function oscWebSocketOpen(port) {
             if ( oscSlip )  oscSlip.sendRaw(data);
             if ( oscUdp)  oscUdp.sendRaw(data);
         });
+*/
+
+oscWebSocket.on('message', (message) => {
+   // console.log('Received WebSocket message');
+   // console.log(message);
+    // Echo the message back to the client
+    //ws.send(`You said: ${message}`);
+
+    clients.forEach((client) => {
+        if (client !== oscWebSocket ) {
+          client.send(message);
+        }
+    });
+    if ( oscSlip )  oscSlip.send(message);
+    if ( oscUdp)  oscUdp.send(message);
+});
         
         // Handle connection close
         oscWebSocket.on('close', () => {
