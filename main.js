@@ -61,12 +61,14 @@ async function getSerialPaths() {
     return paths;
 }
 function oscSlipOnRaw(data,packetInfo) {
-    console.log(`Received serial message: ${data}`);
+    //console.log(`Received serial message: ${data}`);
     if ( oscUdp )  oscUdp.sendRaw(data);
     clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
+        
           client.sendRaw(data);
-    }});
+    });
+
+    
 }
 
 /*
@@ -83,6 +85,7 @@ function oscSlipOnMessage (oscMessage) {
 function oscSlipOnOpen() {
     serial.state = "opened";
     //serialConnectButton.innerText = '🔌 Disconnect Serial';
+    console.log("Opened serial port "+serial.path+" with baud "+serial.baud);
     mainWindow.webContents.send('message', {target:"serial",cmd:"status", args:{serial:serial}});
 }
 
@@ -180,7 +183,7 @@ function oscUdpOnReady() {
     udp.state = "opened";
     var ipAddresses = getIPAddresses();
     
-    console.log("Listening for OSC over UDP.");
+    console.log("Started UDP and listening on the following ports: ");
     ipAddresses.forEach(function (address) {
         console.log(" Host:", address + ", Port:", oscUdp.options.localPort);
     });
@@ -192,7 +195,10 @@ function oscUdpOnReady() {
 
 function oscUdpOnRaw(data,packetInfo) {
     console.log(`Received udp message: ${data}`);
-    if ( oscSlip )  oscSlip.sendRaw(data);
+    if ( oscSlip )  {
+        console.log(`Sending to serial: ${data}`);
+        oscSlip.sendRaw(data);
+    }
     clients.forEach((client) => {
         client.sendRaw(data);
     });
@@ -271,7 +277,7 @@ function oscWebSocketOpen(port) {
     
     // Listen for connection events
     wss.on('connection', (ws) => {
-        console.log('A new client connected!');
+        console.log('A new WebSocket client connected!');
         
 
         let oscWebSocket = new osc.WebSocketPort({
@@ -280,7 +286,7 @@ function oscWebSocketOpen(port) {
         
         // Add the new oscWebSocket to the set
         clients.add(oscWebSocket);
-        console.log(clients.size);
+        //console.log(clients.size);
 
 
         // Listen for messages from the client
@@ -299,10 +305,10 @@ function oscWebSocketOpen(port) {
         
         // Handle connection close
         oscWebSocket.on('close', () => {
-            console.log('A client disconnected');
+            console.log('A WebSocket client disconnected');
             // Remove the client from the set
             clients.delete(oscWebSocket);
-            console.log(clients.size);
+            //console.log(clients.size);
         });
         
         // Send a welcome message to the client
@@ -336,7 +342,7 @@ function createWindow() {
             }
         } else if ( data.target == "serial") {
             if ( data.cmd == "open" ) {
-                console.log(data);
+                //console.log(data);
                 oscSlipOpen(data.args.path ,data.args.baud);
             } else if ( data.cmd == "close") {
                 oscSlipClose();
