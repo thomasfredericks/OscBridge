@@ -497,7 +497,7 @@ app.on('activate', function() {
 
 
 app.on('will-quit', () => {
-    console.log("We condemn the invasion of Ukraine by Poutine and the Palestinian apartheid! Freedom for all!")
+    console.log("We condemn the invasion of Ukraine by Poutine and the Palestinian apartheid! Freedom for all! Don't eat animals!")
   });
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
