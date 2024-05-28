@@ -415,7 +415,8 @@ function createWindow() {
         // Dereference the window object, usually you would store windows
         // in an array if your app supports multi windows, this is the time
         // when you should delete the corresponding element.
-        mainWindow = null
+        mainWindow = null;
+        app.quit();
     })
     
     
@@ -435,7 +436,7 @@ function loadSetting(name,o) {
         Object.keys(o).forEach(key => {
             if ( key in settingObject ) {
                 o[key] = settingObject[key];
-                console.log("Found "+key+" for "+name+" as "+o[key] );
+                //console.log("Found "+key+" for "+name+" as "+o[key] );
             }
             
         });
@@ -450,20 +451,24 @@ function loadSetting(name,o) {
 ////////
 
 async function start() {
+    console.log("--------------------------------");
+    console.log("OscBridge by Thomas O Fredericks");
+    console.log("--------------------------------");
+    //const args = process.argv.slice(2); // Skip the first two elements
+    const args = process.argv;
+    headless = args.includes('--headless');
+    if (headless) console.log('Running in headless mode');
+        
     serialStatus.paths= await getSerialPaths();
+
+    
     // LOAD SETTINGS AND AUTO-CONNECT IF SETTINGS ARE FOUND
     if ( loadSetting("serial",serialSettings) ) oscSlipOpen(serialSettings.path, serialSettings.baud);
     if ( loadSetting("udp",udpSettings) ) oscUdpOpen(udpSettings.receivePort, udpSettings.sendIp, udpSettings.sendPort);
     if ( loadSetting("websocket",websocketSettings) ) oscWebSocketOpen(websocketSettings.port) ;
     
-    //const args = process.argv.slice(2); // Skip the first two elements
-    const args = process.argv;
-    headless = args.includes('--headless');
-    
-    if (headless) {
-        console.log('Running in headless mode');
-        
-    } else {
+
+    if (!headless) {
         createWindow();
     }
 }
@@ -480,6 +485,8 @@ app.on('window-all-closed', function() {
     app.quit()
 })
 
+app.WindowAllClosed += () => app.Exit();
+
 app.on('activate', function() {
     // On OS X it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
@@ -488,5 +495,9 @@ app.on('activate', function() {
     }
 })
 
+
+app.on('will-quit', () => {
+    console.log("We condemn the invasion of Ukraine by Poutine and the Palestinian apartheid! Freedom for all!")
+  });
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
