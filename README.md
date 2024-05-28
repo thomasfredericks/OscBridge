@@ -15,3 +15,7 @@ A bridge between Serial SLIP, OSC UDP and OSC WebSocket made in Electron.
 ## Build
 - `npm install --save-dev electron-builder`
 - `npm run build` : Under Windows, I need to run as administrator.
+
+### Build notes
+
+- Do **not** use the *packed* (single *.exe*) of the Windows build. Use the version that is inside a folder, i.e. the *unpacked* version. The packed version needs to be decompressed everytime it is launched and does not behave properly in *headless* mode.
