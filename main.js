@@ -385,11 +385,15 @@ function createWindow() {
         width: 260,
         height: 600, 
         backgroundColor: "#ccc",
+        resizable: false,  // Prevent window from being resizable
+        autoHideMenuBar: true,  // Hide the default menu bar
+        devTools: false,  // Disable the developer tools
         webPreferences: {
             nodeIntegration: true, // to allow require
             contextIsolation: false, // allow use with Electron 12+
             enableRemoteModule: false // For Electron v10+, if you want to use electron-settings within a browser window, set to true 
         }
+        
     })
     
     
