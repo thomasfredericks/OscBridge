@@ -1,6 +1,9 @@
 # OscBridge
 A bridge between Serial SLIP, OSC UDP and OSC WebSocket made in Electron.
 
+![OscBridge Icon](icon.png)
+
+
 ## Install dev and test
 - `npm install` : Install and setup all packages.
 - `npm start` : Run with a window.

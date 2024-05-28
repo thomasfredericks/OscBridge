@@ -452,7 +452,8 @@ async function start() {
     if ( loadSetting("udp",udpSettings) ) oscUdpOpen(udpSettings.receivePort, udpSettings.sendIp, udpSettings.sendPort);
     if ( loadSetting("websocket",websocketSettings) ) oscWebSocketOpen(websocketSettings.port) ;
     
-    const args = process.argv.slice(2); // Skip the first two elements
+    //const args = process.argv.slice(2); // Skip the first two elements
+    const args = process.argv;
     headless = args.includes('--headless');
     
     if (headless) {
@@ -464,7 +465,7 @@ async function start() {
 }
 
 // This method will be called when Electron has finished    
-// initialization and is ready to create browser windows.
+// initialization and is ready to create browser windows.np
 // Some APIs can only be used after this event occurs.
 app.on('ready', start)
 
