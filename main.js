@@ -12,29 +12,7 @@ const WebSocket = require("ws");
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let mainWindow;
-
-
-//let electronSettingsVersion = 1;
-/*
-let defaultSettings = {
-    serialPath : "", 
-    udpSendPort : 8001,
-    udpReceivePort : 8000,
-    udpSendIp : "127.0.0.1",
-};
-
-
-let options = {
-    serialPortsArray: []
-}
-
-
-let status = {
-    serialConnected: false,
-    udpConnected: false
-}
-*/
-
+let headless = false;
 
 function sendSync(name,o) {
     if ( mainWindow) mainWindow.webContents.send(name, {type:"sync",data:o});
@@ -48,7 +26,7 @@ let oscSlip = undefined;
 let serialSettings= {
     path:"", 
     baud:115200, 
-
+    
 };
 
 let serialStatus = {
@@ -78,30 +56,16 @@ async function getSerialPaths() {
     
     return paths;
 }
-/*
-function oscSlipOnRaw(data,packetInfo) {
-    //console.log(`Received serial message: ${data}`);
-    if ( oscUdp )  oscUdp.sendRaw(data);
-    clients.forEach((client) => {
-        
-          client.sendRaw(data);
-    });
 
-    
-}
-*/
 
 function oscSlipOnMessage (oscMessage) {
     if ( oscUdp )  oscUdp.send(oscMessage);
     clients.forEach((client) => {
         
-          client.send(oscMessage);
+        client.send(oscMessage);
     });
     
 };
-
-
-
 
 
 function oscSlipOnOpen() {
@@ -114,12 +78,12 @@ function oscSlipOnOpen() {
 
 
 
-function oscSlipClose(fromError) {
-    fromError =  fromError || false;
+function oscSlipClose(errorFlag) {
+    errorFlag =  errorFlag || false;
     if ( oscSlip ) {
         oscSlip.close();
         oscSlip = undefined;
-        if ( fromError == true ) {
+        if ( errorFlag == true ) {
             serialStatus.state = "error";
         } else {
             
@@ -130,7 +94,8 @@ function oscSlipClose(fromError) {
 }
 
 function oscSlipOnError(error) {
-    console.log(error);
+    console.log("Serial SLIP error (port missing or opened by another application)!");
+    //console.log(error);
     oscSlipClose(true);
 }
 
@@ -200,12 +165,12 @@ function getIPAddresses() {
 };
 
 
-function oscUdpClose(fromError) {
-    fromError =  fromError || false;
+function oscUdpClose(errorFlag) {
+    errorFlag =  errorFlag || false;
     if ( oscUdp) {
         oscUdp.close();
         oscUdp = undefined;
-        if ( fromError ) {
+        if ( errorFlag ) {
             udpStatus.state = "error";
         } else {
             
@@ -213,7 +178,7 @@ function oscUdpClose(fromError) {
         }
         sendSync("udp",udpSync);
     }
-
+    
 }
 
 function oscUdpOnError(error) {
@@ -236,22 +201,9 @@ function oscUdpOnReady() {
 }
 
 
-/*
-function oscUdpOnRaw(data,packetInfo) {
-    console.log(`Received udp message: ${data}`);
-    if ( oscSlip )  {
-        console.log(`Sending to serial: ${data}`);
-        oscSlip.sendRaw(data);
-    }
-    clients.forEach((client) => {
-        client.sendRaw(data);
-    });
-}
-*/
-
 function oscUdpOnMessage(message) {
     
- //console.log(`Received udp message: ${message}`);
+    //console.log(`Received udp message: ${message}`);
     if ( oscSlip )  {
         //console.log(`Sending to serial: ${message}`);
         oscSlip.send(message);
@@ -327,19 +279,19 @@ function oscWebSocketOpen(port) {
     wss = new WebSocket.Server({ port: websocketSettings.port });
     websocketStatus.state = "opening";
     sendSync("websocket",websocketSync);
-
+    
     wss.on('listening', () => {
         console.log('WebSocket server is listening on port '+websocketSettings.port);
         websocketStatus.state = "opened";
         storeSetting("websocket",websocketSettings);
         sendSync("websocket",websocketSync);
-       });
+    });
     
     // Listen for connection events
     wss.on('connection', (ws) => {
         console.log('A new WebSocket client connected!');
         
-
+        
         let oscWebSocket = new osc.WebSocketPort({
             socket: ws,
             metadata: true
@@ -348,38 +300,21 @@ function oscWebSocketOpen(port) {
         // Add the new oscWebSocket to the set
         clients.add(oscWebSocket);
         //console.log(clients.size);
-
-
-        // Listen for messages from the client
-/*
-        oscWebSocket.on('raw', (data,packetInfo) => {
-            console.log(`Received webscoket message: ${data}`);
+        
+        oscWebSocket.on('message', (message) => {
+            // console.log('Received WebSocket message');
+            // console.log(message);
             // Echo the message back to the client
             //ws.send(`You said: ${message}`);
+            
             clients.forEach((client) => {
-                if (client !== oscWebSocket && client.readyState === WebSocket.OPEN) {
-                  client.sendRaw(data);
+                if (client !== oscWebSocket ) {
+                    client.send(message);
                 }
             });
-            if ( oscSlip )  oscSlip.sendRaw(data);
-            if ( oscUdp)  oscUdp.sendRaw(data);
+            if ( oscSlip )  oscSlip.send(message);
+            if ( oscUdp)  oscUdp.send(message);
         });
-*/
-
-oscWebSocket.on('message', (message) => {
-   // console.log('Received WebSocket message');
-   // console.log(message);
-    // Echo the message back to the client
-    //ws.send(`You said: ${message}`);
-
-    clients.forEach((client) => {
-        if (client !== oscWebSocket ) {
-          client.send(message);
-        }
-    });
-    if ( oscSlip )  oscSlip.send(message);
-    if ( oscUdp)  oscUdp.send(message);
-});
         
         // Handle connection close
         oscWebSocket.on('close', () => {
@@ -389,46 +324,28 @@ oscWebSocket.on('message', (message) => {
             //console.log(clients.size);
         });
         
-        // Send a welcome message to the client
-        //ws.send('Welcome to the WebSocket server!');
     });
 }
+
+
 
 // WINDOW
 //////////
 
-function createWindow() {
-    
-    // Create the browser window.
-    mainWindow = new BrowserWindow({
-        width: 260,
-        height: 600, 
-        backgroundColor: "#ccc",
-        webPreferences: {
-            nodeIntegration: true, // to allow require
-            contextIsolation: false, // allow use with Electron 12+
-            enableRemoteModule: true // For Electron v10+, if you want to use electron-settings within a browser window, 
-        }
-    })
-    
-
-   
-
+function listenWindowMessages() {
     // Handle message from renderer process
     ipcMain.on('global', (event, msg) => {
-       
+        
         if ( msg.type == "sync" ) {
             sendSync("global", {serial:serialSync,udp:udpSync,websocket:websocketSync});
-            //sendSync("serial",serialSync);
-            //sendSync("udp",udpSync);
-            //sendSync("websocket",websocketSync);
+            
         } else {
             console.log("ipcMain received unknow message");
         }
     });
-
+    
     ipcMain.on('command', (event, msg) => {
-
+        
         if ( msg.target == "serial") {
             if ( msg.type == "open" ) {
                 oscSlipOpen(msg.args.path ,msg.args.baud);
@@ -453,14 +370,31 @@ function createWindow() {
             } else {
                 console.log("ipcMain received unknow message");
             }
-
+            
         } 
         else {
             console.log("ipcMain received unknow message");
         }
     });
+}
 
-
+function createWindow() {
+    
+    // Create the browser window.
+    mainWindow = new BrowserWindow({
+        width: 260,
+        height: 600, 
+        backgroundColor: "#ccc",
+        webPreferences: {
+            nodeIntegration: true, // to allow require
+            contextIsolation: false, // allow use with Electron 12+
+            enableRemoteModule: false // For Electron v10+, if you want to use electron-settings within a browser window, set to true 
+        }
+    })
+    
+    
+    listenWindowMessages();
+    
     
     // and load the index.html of the app.
     mainWindow.loadURL(url.format({
@@ -482,98 +416,54 @@ function createWindow() {
     
     
 }
-/*
-function getSettingValue ( name, defaultValue) {
-    if ( storage.hasSync(name) ) return storage.getSync(name);
-    else return defaultValue;
-}
-*/
 
-
-/*
-// Yes settings is alreay an object but just to make sure... and remove all functions
-function settingsToObject() {
-    let settingsCopy = {};
-    Object.keys(defaultSettings).forEach(key => {
-        settingsCopy[key] = settings.getSync(key);
-    });
-    return settingsCopy;
-}
-
-function settingsToJson() {
-    return JSON.stringify(settingsToObject());
-}
-*/
-
-/*
-function storeSetting(name, o) {
-    electronSettings.setSync('version', electronSettingsVersion);
-}
-*/
+// SETTINGS
+////////////
 
 function storeSetting(name,o) {
-/*
-    let settingObject = {};
-    Object.keys(o).forEach(key => {
-            settingObject[key] = o[key];
-            console.log("Storing "+key+" for "+name+" as "+o[key] );
-    })
-*/
+    
     electronSettings.setSync(name,o);
 }
 
 function loadSetting(name,o) {
-   if (electronSettings.hasSync(name)) {
-    let settingObject = electronSettings.getSync(name);
-    Object.keys(o).forEach(key => {
+    if (electronSettings.hasSync(name)) {
+        let settingObject = electronSettings.getSync(name);
+        Object.keys(o).forEach(key => {
             if ( key in settingObject ) {
                 o[key] = settingObject[key];
                 console.log("Found "+key+" for "+name+" as "+o[key] );
             }
-           
+            
         });
         return true;
-   } else {
-    return false;
-   }
-  
-}
-/*
-function loadSettings() {
-    // LOAD DEFAUTLS INTO SETTINGS
-    
-    Object.keys(defaultSettings).forEach(key => {
-        if (!settings.hasSync(key)) {
-            settings.setSync(key, defaultSettings[key]);
-        }
-    });
-
-
-
-    if (electronSettings.hasSync("version")) {
-        let fileVersion = electronSettings.getSync('version');
-        if ( fileVersion == electronSettingsVersion ) {
-            if (electronSettings.hasSync("serial")) serial = electronSettings.getSync('serial');
-            if (electronSettings.hasSync("udp")) udp = electronSettings.getSync('udp');
-            if (electronSettings.hasSync("websocket")) websocket = electronSettings.getSync('websocket');
-        } else {
-            console.log("Electron settings version mismatch...");
-        }
+    } else {
+        return false;
     }
     
 }
 
-*/
+// MAIN
+////////
 
 async function start() {
     serialStatus.paths= await getSerialPaths();
+    // LOAD SETTINGS AND AUTO-CONNECT IF SETTINGS ARE FOUND
     if ( loadSetting("serial",serialSettings) ) oscSlipOpen(serialSettings.path, serialSettings.baud);
     if ( loadSetting("udp",udpSettings) ) oscUdpOpen(udpSettings.receivePort, udpSettings.sendIp, udpSettings.sendPort);
     if ( loadSetting("websocket",websocketSettings) ) oscWebSocketOpen(websocketSettings.port) ;
-    createWindow();
+    
+    const args = process.argv.slice(2); // Skip the first two elements
+    headless = args.includes('--headless');
+    
+    if (headless) {
+        console.log('Running in headless mode');
+        
+    } else {
+        createWindow();
+    }
 }
 
-// This method will be called when Electron has finished
+// This method will be called when Electron has finished    
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', start)
@@ -589,7 +479,7 @@ app.on('activate', function() {
     // On OS X it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (mainWindow === null) {
-        createWindow()
+        createWindow();
     }
 })
 

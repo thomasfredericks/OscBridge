@@ -5,29 +5,65 @@
   "main": "main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder"
   },
   "author": "Thomas O Fredericks",
   "license": "ISC",
   "keywords": [
-        "Open Sound Control",
-        "OSC",
-        "Arduino",
-        "SLIP",
-        "WebSocket"
-    ],
+    "Open Sound Control",
+    "OSC",
+    "Arduino",
+    "SLIP",
+    "WebSocket"
+  ],
   "devDependencies": {
-    "electron": "^30.0.3"
+    "electron": "^30.0.3",
+    "electron-builder": "^24.13.3"
   },
   "dependencies": {
-    "serialport": "^10.3.0",
-    "osc": "^2.4.4",
+    "electron-settings": "^4.0.4",
     "express": "^4.17.1",
-    "ws": "^7.5.3",
-    "electron-settings": "^4.0.4"
+    "osc": "^2.4.4",
+    "serialport": "^10.3.0",
+    "ws": "^7.5.3"
   },
   "engines": {
     "node": "v18.17.1",
     "npm": "9.6.7"
+  },
+  "build": {
+    "appId": "com.tofstuff.oscbridge",
+    "productName": "OscBridge",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "index.html",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "assets/icons/win/icon.ico"
+    },
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "assets/icons/mac/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "linux": {
+      "icon": "assets/icons/png/1024x1024.png",
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ]
+    }
   }
 }
