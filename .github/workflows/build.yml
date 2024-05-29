@@ -91,12 +91,12 @@ jobs:
         with:
           files: |
             dist/ubuntu/linux_*.zip
-            dist/ubuntu/linux_*.AppImage
-            dist/ubuntu/linux_*.deb
-            dist/ubuntu/linux_*.rpm
-            dist/windows/*.exe
+            #dist/ubuntu/linux_*.AppImage
+            #dist/ubuntu/linux_*.deb
+            #dist/ubuntu/linux_*.rpm
+            #dist/windows/*.exe
             dist/windows/*.zip
-            dist/macos/*.dmg
+            #dist/macos/*.dmg
             dist/macos/*.zip
           tag_name: ${{ env.TAG_NAME }}
         env:
