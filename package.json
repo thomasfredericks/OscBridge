@@ -8,7 +8,10 @@
     "start": "electron .",
     "build": "electron-builder"
   },
-  "author": "Thomas O Fredericks",
+  "author": {
+    "name": "Thomas O Fredericks",
+    "email": "ThisFieldIsRequiredForLinuxBuild@example.com"
+  },
   "license": "ISC",
   "keywords": [
     "Open Sound Control",
@@ -35,17 +38,29 @@
   "build": {
     "appId": "com.tofstuff.oscbridge",
     "productName": "OscBridge",
+    "publish": {
+      "provider": "github",
+      "repo": "OscBridge",
+      "owner": "thomasfredericks",
+      "releaseType": "release"
+    },
     "directories": {
       "output": "dist"
     },
     "files": [
       "main.js",
       "index.html",
-      "assets/**/*"
+      "assets/**/*",
+      "**/*",
+      "!**/*.js.map",
+      "!**/*.{ts,tsx}",
+      "!**/*.spec.{js,ts}"
     ],
     "win": {
       "target": [
-        "portable"
+        "portable",
+        "nsis",
+        "zip"
       ],
       "icon": "assets/icons/win/icon.ico"
     },
@@ -62,8 +77,13 @@
       "target": [
         "AppImage",
         "deb",
-        "rpm"
+        "rpm",
+        "zip"
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }
