@@ -35,14 +35,14 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.os }}-release-builds
+          name: ${{ matrix.os }}-dist
           path: |
-            release-builds/*.zip
-            release-builds/*.dmg
-            release-builds/*.deb
-            release-builds/*.rpm
-            release-builds/*.AppImage
-            release-builds/*.exe
+            dist/*.zip
+            dist/*.dmg
+            dist/*.deb
+            dist/*.rpm
+            dist/*.AppImage
+            dist/*.exe
 
   release:
     runs-on: ubuntu-latest
@@ -54,24 +54,24 @@ jobs:
       - name: Download Ubuntu artifact
         uses: actions/download-artifact@v3
         with:
-          name: ubuntu-latest-release-builds
-          path: release-builds/ubuntu
+          name: ubuntu-latest-dist
+          path: dist/ubuntu
 
       - name: Download Windows artifact
         uses: actions/download-artifact@v3
         with:
-          name: windows-latest-release-builds
-          path: release-builds/windows
+          name: windows-latest-dist
+          path: dist/windows
 
       - name: Download macOS artifact
         uses: actions/download-artifact@v3
         with:
-          name: macos-latest-release-builds
-          path: release-builds/macos
+          name: macos-latest-dist
+          path: dist/macos
 
       - name: Rename Linux artifacts
         run: |
-          for file in release-builds/ubuntu/*; do
+          for file in dist/ubuntu/*; do
             dirname=$(dirname "$file")
             filename=$(basename "$file")
             mv "$file" "$dirname/linux_$filename"
@@ -90,14 +90,14 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            release-builds/ubuntu/linux_*.zip
-            release-builds/ubuntu/linux_*.AppImage
-            release-builds/ubuntu/linux_*.deb
-            release-builds/ubuntu/linux_*.rpm
-            release-builds/windows/*.exe
-            release-builds/windows/*.zip
-            release-builds/macos/*.dmg
-            release-builds/macos/*.zip
+            dist/ubuntu/linux_*.zip
+            dist/ubuntu/linux_*.AppImage
+            dist/ubuntu/linux_*.deb
+            dist/ubuntu/linux_*.rpm
+            dist/windows/*.exe
+            dist/windows/*.zip
+            dist/macos/*.dmg
+            dist/macos/*.zip
           tag_name: ${{ env.TAG_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
