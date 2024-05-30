@@ -1,6 +1,6 @@
 {
   "name": "oscbridge",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A bridge between Serial SLIP, OSC UDP and OSC WebSocket",
   "main": "main.js",
   "scripts": {
@@ -10,7 +10,7 @@
   },
   "author": {
     "name": "Thomas O Fredericks",
-    "email": "ThisFieldIsRequiredForLinuxBuild@example.com"
+    "email": "tof@tofstuff.com"
   },
   "license": "ISC",
   "keywords": [
@@ -50,17 +50,11 @@
     "files": [
       "main.js",
       "index.html",
-      "assets/**/*",
-      "**/*",
-      "!**/*.js.map",
-      "!**/*.{ts,tsx}",
-      "!**/*.spec.{js,ts}"
+      "assets/**/*"
     ],
     "win": {
       "target": [
-        "portable",
-        "nsis",
-        "zip"
+        "portable"
       ],
       "icon": "assets/icons/win/icon.ico"
     },
@@ -68,22 +62,14 @@
       "category": "public.app-category.utilities",
       "icon": "assets/icons/mac/icon.icns",
       "target": [
-        "dmg",
-        "zip"
+        "dmg"
       ]
     },
     "linux": {
       "icon": "assets/icons/png/1024x1024.png",
       "target": [
-        "AppImage",
-        "deb",
-        "rpm",
         "zip"
       ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
     }
   }
 }
