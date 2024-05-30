@@ -11,6 +11,8 @@ jobs:
         os: [windows-latest, macos-latest]
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      CSC_LINK: ${{ secrets.CERTIFICATE }}
+      CSC_KEY_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
