@@ -1,9 +1,6 @@
 name: Build and Release Electron App
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
@@ -11,7 +8,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
@@ -57,12 +54,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Download Ubuntu artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: ubuntu-latest-dist
-          path: dist/ubuntu
-
       - name: Download Windows artifact
         uses: actions/download-artifact@v3
         with:
@@ -74,14 +65,6 @@ jobs:
         with:
           name: macos-latest-dist
           path: dist/macos
-
-      - name: Rename Linux artifacts
-        run: |
-          for file in dist/ubuntu/*; do
-            dirname=$(dirname "$file")
-            filename=$(basename "$file")
-            mv "$file" "$dirname/linux_$filename"
-          done
 
       - name: Create a release tag
         id: create_tag
