@@ -26,6 +26,22 @@ jobs:
       - name: Build Electron app
         run: npm run build
 
+      - name: Code sign for Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          npx electron-builder --win --x64
+        env:
+          CSC_LINK: ${{ secrets.CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+ 
+      - name: Code sign for macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          npx electron-builder --mac
+        env:
+          CSC_LINK: ${{ secrets.CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+
       - name: Zip Windows win-unpacked folder
         if: matrix.os == 'windows-latest'
         run: |
