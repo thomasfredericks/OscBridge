@@ -29,6 +29,18 @@ jobs:
       - name: Build Electron app
         run: npm run build
 
+      - name: Get app name and version from package.json
+        id: get-app-name-version
+        run: |
+          APP_NAME_VERSION=$(node -p "require('./package.json').build.productName + ' ' + require('./package.json').version")
+          echo "APP_NAME_VERSION=$APP_NAME_VERSION" >> $GITHUB_ENV
+        
+      - name: Zip Windows win-unpacked folder
+        if: matrix.os == 'windows-latest'
+        run: |
+          Compress-Archive -Path dist\win-unpacked\* -DestinationPath dist\$env:APP_NAME_VERSION.zip
+        shell: pwsh
+
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
@@ -93,8 +105,8 @@ jobs:
             #dist/ubuntu/linux_*.rpm
             #dist/windows/*.exe
             dist/windows/*.zip
-            #dist/macos/*.dmg
-            dist/macos/*.zip
+            dist/macos/*.dmg
+            #dist/macos/*.zip
           tag_name: ${{ env.TAG_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
