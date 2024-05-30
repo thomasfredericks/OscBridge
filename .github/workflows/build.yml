@@ -29,21 +29,15 @@ jobs:
       - name: Build Electron app
         run: npm run build
 
-      - name: Get app name and version from package.json
-        id: get-app-name-version
+      - name: Zip Windows win-unpacked folder
+        if: matrix.os == 'windows-latest'
         run: |
           $appName = (Get-Content -Raw -Path ./package.json | ConvertFrom-Json).build.productName
           $appVersion = (Get-Content -Raw -Path ./package.json | ConvertFrom-Json).version
           $appNameVersion = "$appName $appVersion"
-          echo "APP_NAME_VERSION=$appNameVersion" >> $GITHUB_ENV
+          Compress-Archive -Path dist\win-unpacked\* -DestinationPath dist\$appNameVersion.zip
         shell: pwsh
         
-      - name: Zip Windows win-unpacked folder
-        if: matrix.os == 'windows-latest'
-        run: |
-          Compress-Archive -Path dist\win-unpacked\* -DestinationPath dist\$env:APP_NAME_VERSION.zip
-        shell: pwsh
-
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
@@ -103,13 +97,9 @@ jobs:
         with:
           files: |
             dist/ubuntu/linux_*.zip
-            #dist/ubuntu/linux_*.AppImage
-            #dist/ubuntu/linux_*.deb
-            #dist/ubuntu/linux_*.rpm
-            #dist/windows/*.exe
             dist/windows/*.zip
             dist/macos/*.dmg
-            #dist/macos/*.zip
+            dist/macos/*.zip
           tag_name: ${{ env.TAG_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
