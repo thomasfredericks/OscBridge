@@ -32,8 +32,11 @@ jobs:
       - name: Get app name and version from package.json
         id: get-app-name-version
         run: |
-          APP_NAME_VERSION=$(node -p "require('./package.json').build.productName + ' ' + require('./package.json').version")
-          echo "APP_NAME_VERSION=$APP_NAME_VERSION" >> $GITHUB_ENV
+          $appName = (Get-Content -Raw -Path ./package.json | ConvertFrom-Json).build.productName
+          $appVersion = (Get-Content -Raw -Path ./package.json | ConvertFrom-Json).version
+          $appNameVersion = "$appName $appVersion"
+          echo "APP_NAME_VERSION=$appNameVersion" >> $GITHUB_ENV
+        shell: pwsh
         
       - name: Zip Windows win-unpacked folder
         if: matrix.os == 'windows-latest'
