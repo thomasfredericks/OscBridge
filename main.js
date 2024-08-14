@@ -12,6 +12,7 @@ const WebSocket = require("ws");
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let mainWindow;
+let monitorWindow = undefined;
 let headless = false;
 
 function sendSync(name,o) {
@@ -59,6 +60,12 @@ async function getSerialPaths() {
 
 
 function oscSlipOnMessage (oscMessage) {
+
+    // Send the updated messages to the monitoring window
+    if (monitorWindow) {
+        monitorWindow.webContents.send('osc-message', oscMessage);
+    }
+
     if ( oscUdp )  oscUdp.send(oscMessage);
     clients.forEach((client) => {
         
@@ -95,7 +102,7 @@ function oscSlipClose(errorFlag) {
 
 function oscSlipOnError(error) {
     console.log("Serial SLIP error (port missing or opened by another application)!");
-    //console.log(error);
+    console.log(error);
     oscSlipClose(true);
 }
 
@@ -201,15 +208,20 @@ function oscUdpOnReady() {
 }
 
 
-function oscUdpOnMessage(message) {
+function oscUdpOnMessage(oscMessage) {
+
+    // Send the updated messages to the monitoring window
+    if (monitorWindow) {
+        monitorWindow.webContents.send('osc-message', oscMessage);
+    }
     
     //console.log(`Received udp message: ${message}`);
     if ( oscSlip )  {
         //console.log(`Sending to serial: ${message}`);
-        oscSlip.send(message);
+        oscSlip.send(oscMessage);
     }
     clients.forEach((client) => {
-        client.send(message);
+        client.send(oscMessage);
     });
     
 }
@@ -301,19 +313,24 @@ function oscWebSocketOpen(port) {
         clients.add(oscWebSocket);
         //console.log(clients.size);
         
-        oscWebSocket.on('message', (message) => {
+        oscWebSocket.on('message', (oscMessage) => {
             // console.log('Received WebSocket message');
             // console.log(message);
             // Echo the message back to the client
             //ws.send(`You said: ${message}`);
+
+            // Send the updated messages to the monitoring window
+            if (monitorWindow) {
+                monitorWindow.webContents.send('osc-message', oscMessage);
+            }
             
             clients.forEach((client) => {
                 if (client !== oscWebSocket ) {
-                    client.send(message);
+                    client.send(oscMessage);
                 }
             });
-            if ( oscSlip )  oscSlip.send(message);
-            if ( oscUdp)  oscUdp.send(message);
+            if ( oscSlip )  oscSlip.send(oscMessage);
+            if ( oscUdp)  oscUdp.send(oscMessage);
         });
         
         // Handle connection close
@@ -385,11 +402,15 @@ function createWindow() {
         width: 260,
         height: 600, 
         backgroundColor: "#ccc",
+        resizable: false,  // Prevent window from being resizable
+        autoHideMenuBar: true,  // Hide the default menu bar
+        devTools: false,  // Disable the developer tools
         webPreferences: {
             nodeIntegration: true, // to allow require
             contextIsolation: false, // allow use with Electron 12+
             enableRemoteModule: false // For Electron v10+, if you want to use electron-settings within a browser window, set to true 
         }
+        
     })
     
     
@@ -411,10 +432,41 @@ function createWindow() {
         // Dereference the window object, usually you would store windows
         // in an array if your app supports multi windows, this is the time
         // when you should delete the corresponding element.
-        mainWindow = null
+        mainWindow = null;
+        app.quit();
     })
     
     
+}
+
+function createMonitorWindow() {
+
+     if (monitorWindow) {
+        monitorWindow.focus(); // Bring the existing window to the front
+        return;
+    }
+
+    monitorWindow = new BrowserWindow({
+        width: 800,
+        height: 600,
+        backgroundColor: "#000",
+        resizable: true,  // Prevent window from being resizable
+        autoHideMenuBar: true,  // Hide the default menu bar
+        devTools: false,  // Disable the developer tools
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false,
+            enableRemoteModule: false // For Electron v10+, if you want to use electron-settings within a browser window, set to true 
+        }
+    });
+    
+     monitorWindow.on('closed', () => {
+        monitorWindow = undefined;
+    });
+
+    monitorWindow.loadFile('monitor.html');
+
+
 }
 
 // SETTINGS
@@ -431,7 +483,7 @@ function loadSetting(name,o) {
         Object.keys(o).forEach(key => {
             if ( key in settingObject ) {
                 o[key] = settingObject[key];
-                console.log("Found "+key+" for "+name+" as "+o[key] );
+                //console.log("Found "+key+" for "+name+" as "+o[key] );
             }
             
         });
@@ -446,21 +498,27 @@ function loadSetting(name,o) {
 ////////
 
 async function start() {
+    console.log("--------------------------------");
+    console.log("OscBridge by Thomas O Fredericks");
+    console.log("--------------------------------");
+    //const args = process.argv.slice(2); // Skip the first two elements
+    const args = process.argv;
+    headless = args.includes('--headless');
+    if (headless) console.log('Running in headless mode');
+        
     serialStatus.paths= await getSerialPaths();
+
+    
     // LOAD SETTINGS AND AUTO-CONNECT IF SETTINGS ARE FOUND
     if ( loadSetting("serial",serialSettings) ) oscSlipOpen(serialSettings.path, serialSettings.baud);
     if ( loadSetting("udp",udpSettings) ) oscUdpOpen(udpSettings.receivePort, udpSettings.sendIp, udpSettings.sendPort);
     if ( loadSetting("websocket",websocketSettings) ) oscWebSocketOpen(websocketSettings.port) ;
     
-    //const args = process.argv.slice(2); // Skip the first two elements
-    const args = process.argv;
-    headless = args.includes('--headless');
-    
-    if (headless) {
-        console.log('Running in headless mode');
-        
-    } else {
+
+    if (!headless) {
         createWindow();
+         // Create the monitoring window when the app is ready
+        createMonitorWindow();
     }
 }
 
@@ -476,6 +534,8 @@ app.on('window-all-closed', function() {
     app.quit()
 })
 
+app.WindowAllClosed += () => app.Exit();
+
 app.on('activate', function() {
     // On OS X it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
@@ -484,5 +544,9 @@ app.on('activate', function() {
     }
 })
 
+
+app.on('will-quit', () => {
+    console.log("We condemn the invasion of Ukraine by Poutine. We also condmn the Palestinian apartheid! Freedom for all! Be kind to animals!")
+  });
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
