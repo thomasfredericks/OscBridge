@@ -546,7 +546,15 @@ app.on('activate', function() {
 
 
 app.on('will-quit', () => {
-    console.log("We condemn the invasion of Ukraine by Poutine. We also condmn the Palestinian apartheid! Freedom for all! Be kind to animals!")
+    // Example string array
+    const exitMessagesArray = ["We condemn the invasion of Ukraine by Poutine.", "We condemn the Palestinian apartheid!", "Freedom for all!", "Every worker should have the same rights, even seasonal and internationnal workers", "Be kind to animals!", "Be kind to plants!"];
+
+    // Get a random index
+    const randomIndex = Math.floor(Math.random() * exitMessagesArray.length);
+
+    // Select the random element
+    const randomElement = exitMessagesArray[randomIndex];
+
+    console.log(randomElement);
+
   });
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.
