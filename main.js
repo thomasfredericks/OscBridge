@@ -452,7 +452,7 @@ function createMonitorWindow() {
         backgroundColor: "#000",
         resizable: true,  // Prevent window from being resizable
         autoHideMenuBar: true,  // Hide the default menu bar
-        devTools: false,  // Disable the developer tools
+        devTools: true,  // Disable the developer tools
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -465,7 +465,8 @@ function createMonitorWindow() {
     });
 
     monitorWindow.loadFile('monitor.html');
-
+    
+     monitorWindow.webContents.openDevTools();
 
 }
 

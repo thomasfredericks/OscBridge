@@ -1,6 +1,16 @@
 const { ipcRenderer } = require('electron');
 
 
+let oscOutput = document.getElementById('osc-output');
+
+let oscOutputLengths = []; // Array to keep track of line lengths
+let oscOutputMax = 64;
+
+
+function isPreOverflowing(preElement) {
+    return preElement.scrollHeight > preElement.clientHeight ;
+}
+
 ipcRenderer.on('osc-message', (event, oscMessage) => {
    
     const args = oscMessage.args;
@@ -10,20 +20,39 @@ ipcRenderer.on('osc-message', (event, oscMessage) => {
         types += String(arg.type);
         values += String(arg.value);
     });
+    
+    let line = oscMessage.address+' '+types+' '+values+'\n';
 
-let content = oscMessage.address+' '+types+' '+values+'\n'+document.getElementById('osc-output').innerText;
-content = String(content.length ) + content;
-//let content = document.getElementById('osc-output').innerText+'\n'+oscMessage.address+' '+types+' '+values;
-    /*
-const maxChars = 200;
+    oscOutputLengths.push(line.length); // Store the length of the added line
 
-    // If content exceeds maxChars, trim the beginning
-   if (content.length > maxChars) {
-        content = content.slice(0,maxChars);
+    let content = line + oscOutput.innerText;
+    
+    if ( oscOutputLengths.length > oscOutputMax ) {
+        let lengthToRemove = oscOutputLengths[0];
+        oscOutputLengths.shift();
+       // console.log('content.length '+content.length);
+        content = content.slice(0, content.length - lengthToRemove);
+      //  console.log('content.length '+content.length);
     }
+
+    oscOutput.innerText = content;
+
+    //console.log('scrollHeight '+oscOutput.scrollHeight);
+    //    console.log('clientHeight '+oscOutput.clientHeight);
+/*
+    while (isPreOverflowing(oscOutput) && oscOutputLengths.length > 0 ) {
+        console.log('The <pre> element is overflowing.');
+        console.log("oscOutputLengths.length "+oscOutputLengths.length );
+        console.log('scrollHeight '+oscOutput.scrollHeight);
+        console.log('clientHeight '+oscOutput.clientHeight);
+        let lengthToRemove = oscOutputLengths[0];
+        oscOutputLengths.shift();
+        console.log('lengthToRemove '+lengthToRemove);
+        content.slice(0, content.length - lengthToRemove);
+        oscOutput.innerText = content;
+    } 
 */
-console.log(content);
-  document.getElementById('osc-output').innerText = content;
+
   //document.getElementById('osc-output').innerText +=  `\n${JSON.stringify(oscMessage)}`;
 
 });
