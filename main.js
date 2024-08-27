@@ -449,7 +449,9 @@ function createWindow() {
         backgroundColor: "#ccc",
         resizable: false,  // Prevent window from being resizable
         autoHideMenuBar: true,  // Hide the default menu bar
+
         devTools: true,  // Disable the developer tools
+
         webPreferences: {
             nodeIntegration: true, // to allow require
             contextIsolation: false, // allow use with Electron 12+
@@ -594,6 +596,7 @@ app.on('activate', function() {
 
 
 app.on('will-quit', () => {
+
     // Example string array
     const exitMessagesArray = ["We condemn the invasion of Ukraine by Poutine.", "We condemn the Palestinian apartheid!", "Freedom for all!", "Every worker should have the same rights, even seasonal and internationnal workers", "Be kind to animals!", "Be kind to plants!"];
 
@@ -606,3 +609,4 @@ app.on('will-quit', () => {
     console.log(randomElement);
 
   });
+
