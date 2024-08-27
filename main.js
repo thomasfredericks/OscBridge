@@ -19,6 +19,12 @@ function sendSync(name,o) {
     if ( mainWindow) mainWindow.webContents.send(name, {type:"sync",data:o});
 }
 
+// MONITOR
+//////////
+
+let monitorListening = false;
+
+
 // SERIAL
 /////////
 
@@ -61,16 +67,20 @@ async function getSerialPaths() {
 
 function oscSlipOnMessage (oscMessage) {
 
-    // Send the updated messages to the monitoring window
-    if (monitorWindow) {
-        monitorWindow.webContents.send('osc-message', oscMessage);
-    }
-
-    if ( oscUdp )  oscUdp.send(oscMessage);
-    clients.forEach((client) => {
-        
-        client.send(oscMessage);
-    });
+            // Send the updated messages to the monitoring window
+            if (monitorListening) {
+                mainWindow.webContents.send('monitor-message', {source:"serial",oscMessage:oscMessage});
+            }
+            /*
+            if ( oscSlip )  {
+                oscSlip.send(oscMessage);
+            }
+    */
+            if ( oscUdp )  oscUdp.send(oscMessage);
+    
+            clients.forEach((client) => {
+                client.send(oscMessage);
+            });
     
 };
 
@@ -210,19 +220,20 @@ function oscUdpOnReady() {
 
 function oscUdpOnMessage(oscMessage) {
 
-    // Send the updated messages to the monitoring window
-    if (monitorWindow) {
-        monitorWindow.webContents.send('osc-message', oscMessage);
-    }
-    
-    //console.log(`Received udp message: ${message}`);
-    if ( oscSlip )  {
-        //console.log(`Sending to serial: ${message}`);
-        oscSlip.send(oscMessage);
-    }
-    clients.forEach((client) => {
-        client.send(oscMessage);
-    });
+            // Send the updated messages to the monitoring window
+            if (monitorListening) {
+                mainWindow.webContents.send('monitor-message', {source:"udp",oscMessage:oscMessage});
+            }
+            
+            if ( oscSlip )  {
+                oscSlip.send(oscMessage);
+            }
+    /*
+            if ( oscUdp )  oscUdp.send(oscMessage);
+    */
+            clients.forEach((client) => {
+                client.send(oscMessage);
+            });
     
 }
 
@@ -320,17 +331,24 @@ function oscWebSocketOpen(port) {
             //ws.send(`You said: ${message}`);
 
             // Send the updated messages to the monitoring window
-            if (monitorWindow) {
-                monitorWindow.webContents.send('osc-message', oscMessage);
+          
+            // Send the updated messages to the monitoring window
+            if (monitorListening) {
+                mainWindow.webContents.send('monitor-message', {source:"websocket",oscMessage:oscMessage});
             }
-            
+
             clients.forEach((client) => {
                 if (client !== oscWebSocket ) {
                     client.send(oscMessage);
                 }
             });
-            if ( oscSlip )  oscSlip.send(oscMessage);
-            if ( oscUdp)  oscUdp.send(oscMessage);
+            
+            if ( oscSlip )  {
+                oscSlip.send(oscMessage);
+            }
+    
+            if ( oscUdp )  oscUdp.send(oscMessage);
+    
         });
         
         // Handle connection close
@@ -393,18 +411,33 @@ function listenWindowMessages() {
             console.log("ipcMain received unknow message");
         }
     });
+
+    ipcMain.on('monitor', (event, msg) => {
+        
+        if ( msg.target == "listen") {
+            if ( msg.type == "open" ) {
+                monitorListening = true;
+            } else if ( msg.type == "close") {
+                monitorListening = false;
+            } else {
+                console.log("ipcMain received unknow message");
+            }
+        } 
+
+    });
+
 }
 
 function createWindow() {
     
     // Create the browser window.
     mainWindow = new BrowserWindow({
-        width: 260,
+        width: 800,
         height: 600, 
         backgroundColor: "#ccc",
         resizable: false,  // Prevent window from being resizable
         autoHideMenuBar: true,  // Hide the default menu bar
-        devTools: false,  // Disable the developer tools
+        devTools: true,  // Disable the developer tools
         webPreferences: {
             nodeIntegration: true, // to allow require
             contextIsolation: false, // allow use with Electron 12+
@@ -425,7 +458,9 @@ function createWindow() {
     }))
     
     // Open the DevTools.
-    //mainWindow.webContents.openDevTools()
+    globalShortcut.register('Ctrl+Shift+I', () => {
+        mainWindow.webContents.openDevTools({ mode: 'detach' });
+    });
     
     // Emitted when the window is closed.
     mainWindow.on('closed', function() {
@@ -438,7 +473,7 @@ function createWindow() {
     
     
 }
-
+/*
 function createMonitorWindow() {
 
      if (monitorWindow) {
@@ -469,7 +504,7 @@ function createMonitorWindow() {
      monitorWindow.webContents.openDevTools();
 
 }
-
+*/
 // SETTINGS
 ////////////
 
@@ -519,7 +554,7 @@ async function start() {
     if (!headless) {
         createWindow();
          // Create the monitoring window when the app is ready
-        createMonitorWindow();
+        //createMonitorWindow();
     }
 }
 

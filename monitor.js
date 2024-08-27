@@ -1,4 +1,4 @@
-const { ipcRenderer } = require('electron');
+//const { ipcRenderer } = require('electron');
 
 
 let oscOutput = document.getElementById('osc-output');
@@ -6,14 +6,32 @@ let oscOutput = document.getElementById('osc-output');
 let oscOutputLengths = []; // Array to keep track of line lengths
 let oscOutputMax = 64;
 
+let listening = "closed";
+const monitorListen = document.getElementById ('monitor-listen');
+monitorListen.style.backgroundColor = buttonColors[listening].backgroundColor;
+monitorListen.style.color = buttonColors[listening].color;
+
+monitorListen.addEventListener('click', function () {
+    if ( listening == "opened"  ) {
+        listening = "closed";
+        ipcRenderer.send('monitor', {target:"listen", type:"close"});
+    } else {
+        listening = "opened";
+        ipcRenderer.send('monitor', {target:"listen", type:"open"});
+    }
+
+    monitorListen.style.backgroundColor = buttonColors[listening].backgroundColor;
+monitorListen.style.color = buttonColors[listening].color;
+
+});
 
 function isPreOverflowing(preElement) {
     return preElement.scrollHeight > preElement.clientHeight ;
 }
 
-ipcRenderer.on('osc-message', (event, oscMessage) => {
+ipcRenderer.on('monitor-message', (event, data) => {
    
-    const args = oscMessage.args;
+    const args = data.oscMessage.args;
     let types ='';
     let values = '';
     args.forEach((arg, index) => {
@@ -21,18 +39,21 @@ ipcRenderer.on('osc-message', (event, oscMessage) => {
         values += String(arg.value);
     });
     
-    let line = oscMessage.address+' '+types+' '+values+'\n';
+    let line = data.source+": "+data.oscMessage.address+' '+types+' '+values+'\n';
 
     oscOutputLengths.push(line.length); // Store the length of the added line
 
     let content = line + oscOutput.innerText;
     
-    if ( oscOutputLengths.length > oscOutputMax ) {
+ 
+    while ( oscOutputLengths.length > oscOutputMax ) {
         let lengthToRemove = oscOutputLengths[0];
         oscOutputLengths.shift();
        // console.log('content.length '+content.length);
         content = content.slice(0, content.length - lengthToRemove);
       //  console.log('content.length '+content.length);
+
+      
     }
 
     oscOutput.innerText = content;
