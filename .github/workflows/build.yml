@@ -1,0 +1,89 @@
+name: Build and Release Electron App
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      CSC_LINK: ${{ secrets.CERTIFICATE }}
+      CSC_KEY_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Electron app
+        run: |
+          npm run build
+        env:
+          CSC_LINK: ${{ secrets.CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+
+      - name: Zip Windows win-unpacked folder
+        if: matrix.os == 'windows-latest'
+        run: |
+          $appName = (Get-Content -Raw -Path ./package.json | ConvertFrom-Json).build.productName
+          $appVersion = (Get-Content -Raw -Path ./package.json | ConvertFrom-Json).version
+          $appNameVersion = "$appName $appVersion"
+          Compress-Archive -Path dist\win-unpacked\* -DestinationPath dist\$appNameVersion.zip
+        shell: pwsh
+        
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}-dist
+          path: |
+            dist/*.zip
+            dist/*.dmg
+            dist/*.deb
+            dist/*.rpm
+            dist/*.AppImage
+            dist/*.exe
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get app version
+        id: app_version
+        run: echo "::set-output name=version::$(jq -r .version package.json)"
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: windows-latest-dist
+          path: dist/windows
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: macos-latest-dist
+          path: dist/macos
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/ubuntu/linux_*.zip
+            dist/windows/*.zip
+            dist/macos/*.dmg
+            dist/macos/*.zip
+          tag_name: ${{ steps.app_version.outputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}

@@ -455,7 +455,9 @@ function createWindow() {
         backgroundColor: "#ccc",
         resizable: false,  // Prevent window from being resizable
         autoHideMenuBar: true,  // Hide the default menu bar
+
         devTools: true,  // Disable the developer tools
+
         webPreferences: {
             nodeIntegration: true, // to allow require
             contextIsolation: false, // allow use with Electron 12+
@@ -592,3 +594,4 @@ app.on('will-quit', () => {
     
 
   });
+
