@@ -11,6 +11,8 @@ const monitorListen = document.getElementById ('monitor-listen');
 monitorListen.style.backgroundColor = buttonColors[listening].backgroundColor;
 monitorListen.style.color = buttonColors[listening].color;
 
+const monitorFilter = document.getElementById ('monitor-filter');
+
 monitorListen.addEventListener('click', function () {
     if ( listening == "opened"  ) {
         listening = "closed";
@@ -37,9 +39,15 @@ ipcRenderer.on('monitor-message', (event, data) => {
     args.forEach((arg, index) => {
         types += String(arg.type);
         values += String(arg.value);
+        values += " ";
     });
     
     let line = data.source+": "+data.oscMessage.address+' '+types+' '+values+'\n';
+
+    const filterInput = monitorFilter.value.trim();
+    if (filterInput.length > 0 ) {
+        if (line.includes(filterInput) == false ) return;
+    }
 
     oscOutputLengths.push(line.length); // Store the length of the added line
 

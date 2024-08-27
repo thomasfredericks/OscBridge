@@ -92,28 +92,39 @@ function oscSlipOnOpen() {
     storeSetting("serial",serialSettings);
     sendSync("serial",serialSync);
 }
-
-
+/*
+function oscSlipOnClose() {
+    console.log("Serial closed, releasing");
+    oscSlip = undefined;
+}
+*/
 
 function oscSlipClose(errorFlag) {
     errorFlag =  errorFlag || false;
     if ( oscSlip ) {
         oscSlip.close();
         oscSlip = undefined;
-        if ( errorFlag == true ) {
-            serialStatus.state = "error";
-        } else {
-            
-            serialStatus.state = "closed";
-        }
+
+        serialStatus.state = "closed";
+        
         sendSync("serial",serialSync);
     }
 }
 
 function oscSlipOnError(error) {
-    console.log("Serial SLIP error (port missing or opened by another application)!");
-    console.log(error);
-    oscSlipClose(true);
+    
+    
+    // Get all keys
+    // Get all entries
+    console.log("error.message: " + error.message);
+    console.log("error.stack: " + error.stack);
+    console.log("error.name: " + error.name);
+    if ( error.message == "Port is not open" || error.message.includes("Access denied") || error.message == undefined) {
+        console.log("Serial SLIP error (port missing or opened by another application)!");
+        oscSlip = undefined;
+        serialStatus.state = "error";
+        sendSync("serial",serialSync);
+    }
 }
 
 function oscSlipOpen(path,baud) {
@@ -133,6 +144,7 @@ function oscSlipOpen(path,baud) {
     oscSlip.on("open", oscSlipOnOpen); //serial.path = data.path;
     oscSlip.on("error", oscSlipOnError);
     oscSlip.on("message", oscSlipOnMessage);
+    //oscSlip.on("close", oscSlipOnClose);
     //oscSlip.on("raw", oscSlipOnRaw);
     
     // Open the port.

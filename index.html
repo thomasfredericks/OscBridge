@@ -75,8 +75,8 @@
         border-radius: 5px; /* Optional rounded corners */
         border: 1px solid #ccc;
          font-family: monospace;
-         max-height: 380px;
-         min-height: 380px;
+         max-height: 360px;
+         min-height: 360px;
        /*overflow: hidden;*/ /* Prevents scrollbars from appearing */
        overflow: auto;
         white-space: pre-wrap;
@@ -153,6 +153,7 @@
         <div class="table-column">
             <section class="form-group">
                 <h3>Monitor</h3>
+                <input type="text" id="monitor-filter" placeholder="Type to filter messages...">
                 <button id="monitor-listen" type="button" >👂 Listen</button>
                     <div>
                         <pre id="osc-output" ></pre>
@@ -230,12 +231,10 @@ let websocketStatus = {
         serialStatus = data.status;
         
         serialConnectButton.disabled = true;
-        serialPathSelector.disabled = true;
-        serialBaudSelector.disabled = true;
+
         if (serialStatus.paths.length > 0) {
             serialConnectButton.disabled = false;
-            serialPathSelector.disabled = false;
-            serialBaudSelector.disabled = false;
+            
             // Empty the selector... this is gross how this is done...
             serialPathSelector.innerHTML = "";
             // Fill the selector
@@ -251,10 +250,12 @@ let websocketStatus = {
         
         if ( serialStatus.state == "opened" ) {
             serialConnectButton.innerText = '🔌 Disconnect Serial';
-            
+            serialPathSelector.disabled = true;
+            serialBaudSelector.disabled = true;
         } else {
             serialConnectButton.innerText = '🔌 Connect Serial';
-
+            serialPathSelector.disabled = false;
+            serialBaudSelector.disabled = false;
         }
 
         serialConnectButton.style.backgroundColor = buttonColors[serialStatus.state].backgroundColor;
