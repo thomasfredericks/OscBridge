@@ -40,6 +40,7 @@
     },
     "files": [
       "main.js",
+      "monitor.js",
       "index.html",
       "assets/**/*"
     ],
