@@ -8,27 +8,24 @@
         body {
             font-family: Arial, sans-serif;
             background-color: #f4f4f9;
-            margin: 0;
+            margin: 10px;
             padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
         }
-        /*
-        .form-container {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            width: 300px;
+
+        .table-container {
+            display: grid;
+            grid-template-columns: 220px 512px; /* Two  columns */
+            gap: 10px; /* Space between columns */
         }
-        .form-container h2 {
+
+        .table-column {
             text-align: center;
-            margin-bottom: 20px;
-            color: #333;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
         }
-        */
+
+
         .form-group {
             margin-bottom: 15px;
         }
@@ -38,8 +35,7 @@
             margin-bottom: 5px;
         }
         .form-group label {
-            display: block;
-            
+                     
             color: #666;
         }
         .form-group input {
@@ -70,67 +66,104 @@
         }
         */
     </style>
+
+<style>
+    pre {
+        background-color: #333; /* Background color */
+        color: #fff; /* Text color */
+        padding: 5px; /* Optional padding */
+        border-radius: 5px; /* Optional rounded corners */
+        border: 1px solid #ccc;
+         font-family: monospace;
+         max-height: 360px;
+         min-height: 360px;
+       /*overflow: hidden;*/ /* Prevents scrollbars from appearing */
+       overflow: auto;
+        white-space: pre-wrap;
+        text-align: left;
+
+    }
+</style>
 </head>
 
 <body>
-    <div class="form-container">
-        <section class="form-group">
-            <h3>Serial Settings</h3>
+
+    <div class="table-container">
+        <div class="table-column">
+            <div class="form-container">
+                <section class="form-group">
+                    <h3>Serial Settings</h3>
+                    
+                    <label for="serial-port-selector">Port</label>
+                    <select id="serial-port-selector" name="serial-port-selector" disabled>
+                    </select>
+                    <br>
+                    <label for="serial-baud-selector">Baud</label>
+                    <select id="serial-baud-selector" name="serial-baud-selector" disabled>
+                        <option>9600</option>
+                        <option>19200</option>
+                        <option>31250</option>
+                        <option>38400</option>
+                        <option>57600</option>
+                        <option>74880</option>
+                        <option selected>115200</option>
+                        <option>230400</option>
+                        <option>250000</option>
+                        <option>460800</option>
+                        <option>500000</option>
+                        <option>921600</option>
+                        <option>1000000</option>
+                        <option>3000000</option>
+                    </select>
+                    <br>
+                    <button id="connect-serial-button" type="button" disabled>🔌 Connect Serial</button>
+                    
+                    
+                </section>
+                
+                <section class="form-group">
+                    <h3>UDP Settings</h3>
+                    <label for="udp-receive-port">Receive Port</label>
+                    
+                    <input type="text" id="udp-receive-port" name="udp-receive-port"  value="127.0.0.1" disabled>
+                    
+                    <label for="udp-send-ip">Send IP Address</label>
+                    
+                    <input type="text" id="udp-send-ip" name="udp-send-ip"  value="8000" disabled>
+                    
+                    <label for="udp-send-port">Send Port</label>
+                    
+                    <input type="text" id="udp-send-port" name="udp-send-port"  value="8001" disabled>
+                    <br>
+                    <button id="connect-udp-button" type="button" disabled>📢 Start UDP</button>
+                    
+                </section>
+                
+                <section class="form-group">
+                    <h3>WebSocket Settings</h3>
+                    <label for="websocket-port">Port</label>
+                    <input type="text" id="websocket-port" name="websocket-port"  value="8080" disabled>
+                    <br>
+                    <button id="connect-websocket-button" type="button" disabled>🌐 Start WebSocket</button>
+                    
+                    
+                </section>
+            </div>
+        </div>
+        <div class="table-column">
+            <section class="form-group">
+                <h3>Monitor</h3>
+                <input type="text" id="monitor-filter" placeholder="Type to filter messages...">
+                <button id="monitor-listen" type="button" >👂 Listen</button>
+                    <div>
+                        <pre id="osc-output" ></pre>
+                    </div>
+                </section>
+           
             
-            <label for="serial-port-selector">Port</label>
-            <select id="serial-port-selector" name="serial-port-selector" disabled>
-            </select>
-            <label for="serial-baud-selector">Baud</label>
-            <select id="serial-baud-selector" name="serial-baud-selector" disabled>
-                <option>9600</option>
-                <option>19200</option>
-                <option>31250</option>
-                <option>38400</option>
-                <option>57600</option>
-                <option>74880</option>
-                <option selected>115200</option>
-                <option>230400</option>
-                <option>250000</option>
-                <option>460800</option>
-                <option>500000</option>
-                <option>921600</option>
-                <option>1000000</option>
-                <option>3000000</option>
-            </select>
-            <br>
-            <button id="connect-serial-button" type="button" disabled>🔌 Connect Serial</button>
-            
-            
-        </section>
-        
-        <section class="form-group">
-            <h3>UDP Settings</h3>
-            <label for="udp-receive-port">Receive Port</label>
-            
-            <input type="text" id="udp-receive-port" name="udp-receive-port"  value="127.0.0.1" disabled>
-            
-            <label for="udp-send-ip">Send IP Address</label>
-            
-            <input type="text" id="udp-send-ip" name="udp-send-ip"  value="8000" disabled>
-            
-            <label for="udp-send-port">Send Port</label>
-            
-            <input type="text" id="udp-send-port" name="udp-send-port"  value="8001" disabled>
-            <br>
-            <button id="connect-udp-button" type="button" disabled>📢 Start UDP</button>
-            
-        </section>
-        
-        <section class="form-group">
-            <h3>WebSocket Settings</h3>
-            <label for="websocket-port">Port</label>
-            <input type="text" id="websocket-port" name="websocket-port"  value="8080" disabled>
-            <br>
-            <button id="connect-websocket-button" type="button" disabled>🌐 Start WebSocket</button>
-            
-            
-        </section>
+        </div>
     </div>
+   
 </body>
 
 <script>
@@ -198,12 +231,10 @@ let websocketStatus = {
         serialStatus = data.status;
         
         serialConnectButton.disabled = true;
-        serialPathSelector.disabled = true;
-        serialBaudSelector.disabled = true;
+
         if (serialStatus.paths.length > 0) {
             serialConnectButton.disabled = false;
-            serialPathSelector.disabled = false;
-            serialBaudSelector.disabled = false;
+            
             // Empty the selector... this is gross how this is done...
             serialPathSelector.innerHTML = "";
             // Fill the selector
@@ -219,10 +250,12 @@ let websocketStatus = {
         
         if ( serialStatus.state == "opened" ) {
             serialConnectButton.innerText = '🔌 Disconnect Serial';
-            
+            serialPathSelector.disabled = true;
+            serialBaudSelector.disabled = true;
         } else {
             serialConnectButton.innerText = '🔌 Connect Serial';
-
+            serialPathSelector.disabled = false;
+            serialBaudSelector.disabled = false;
         }
 
         serialConnectButton.style.backgroundColor = buttonColors[serialStatus.state].backgroundColor;
@@ -419,12 +452,16 @@ let websocketStatus = {
     });
     
     */
+
+
     
 
     ipcRenderer.send('global', {type:'sync'});
     
     
 </script>
+
+<script src="monitor.js"></script>
 
 
 </html>
