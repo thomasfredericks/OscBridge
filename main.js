@@ -12,11 +12,13 @@ const WebSocket = require("ws");
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let mainWindow;
-let monitorWindow = undefined;
+//let monitorWindow = undefined;
 let headless = false;
 
+let mainWindowIsReady = false;
+
 function sendSync(name,o) {
-    if ( mainWindow) mainWindow.webContents.send(name, {type:"sync",data:o});
+    if ( mainWindowIsReady ) mainWindow.webContents.send(name, {type:"sync",data:o});
 }
 
 // MONITOR
@@ -68,7 +70,7 @@ async function getSerialPaths() {
 function oscSlipOnMessage (oscMessage) {
 
             // Send the updated messages to the monitoring window
-            if (monitorListening) {
+            if (monitorListening && mainWindowIsReady) {
                 mainWindow.webContents.send('monitor-message', {source:"serial",oscMessage:oscMessage});
             }
             /*
@@ -85,40 +87,44 @@ function oscSlipOnMessage (oscMessage) {
 };
 
 
+
+
+function oscSlipOnClose() {
+    // THIS SHOULD ONLY BE CALLLED only IF THE SERIAL WAS PHYSICALLY DISCONNECTED
+    console.log("Serial was disconnect");
+    oscSlip = undefined;
+    serialStatus.state = "error";
+    sendSync("serial",serialSync);
+    //oscSlip = undefined;
+}
+
 function oscSlipOnOpen() {
     serialStatus.state = "opened";
     //serialConnectButton.innerText = '🔌 Disconnect Serial';
     console.log("Opened serial port "+serialSettings.path+" with baud "+serialSettings.baud);
     storeSetting("serial",serialSettings);
     sendSync("serial",serialSync);
+    oscSlip.on("close", oscSlipOnClose);
 }
-/*
-function oscSlipOnClose() {
-    console.log("Serial closed, releasing");
-    oscSlip = undefined;
-}
-*/
 
 function oscSlipClose(errorFlag) {
     errorFlag =  errorFlag || false;
     if ( oscSlip ) {
+        oscSlip.off("close", oscSlipOnClose); // SO THE CALLBACK IS NOT CALLED WHEN WE CLOSE OURSELVES
         oscSlip.close();
         oscSlip = undefined;
-
         serialStatus.state = "closed";
-        
         sendSync("serial",serialSync);
     }
 }
 
+// ONE ERROR IS CALLED IF TRY TO CLOSSE AN UNOPENED
 function oscSlipOnError(error) {
-    
-    
-    // Get all keys
-    // Get all entries
+    /*
     console.log("error.message: " + error.message);
     console.log("error.stack: " + error.stack);
     console.log("error.name: " + error.name);
+    */
     if ( error.message == "Port is not open" || error.message.includes("Access denied") || error.message == undefined) {
         console.log("Serial SLIP error (port missing or opened by another application)!");
         oscSlip = undefined;
@@ -144,7 +150,7 @@ function oscSlipOpen(path,baud) {
     oscSlip.on("open", oscSlipOnOpen); //serial.path = data.path;
     oscSlip.on("error", oscSlipOnError);
     oscSlip.on("message", oscSlipOnMessage);
-    //oscSlip.on("close", oscSlipOnClose);
+    
     //oscSlip.on("raw", oscSlipOnRaw);
     
     // Open the port.
@@ -233,7 +239,7 @@ function oscUdpOnReady() {
 function oscUdpOnMessage(oscMessage) {
 
             // Send the updated messages to the monitoring window
-            if (monitorListening) {
+            if (monitorListening && mainWindowIsReady) {
                 mainWindow.webContents.send('monitor-message', {source:"udp",oscMessage:oscMessage});
             }
             
@@ -345,7 +351,7 @@ function oscWebSocketOpen(port) {
             // Send the updated messages to the monitoring window
           
             // Send the updated messages to the monitoring window
-            if (monitorListening) {
+            if (monitorListening && mainWindowIsReady ) {
                 mainWindow.webContents.send('monitor-message', {source:"websocket",oscMessage:oscMessage});
             }
 
@@ -458,7 +464,8 @@ function createWindow() {
         
     })
     
-    
+    mainWindowIsReady = true;
+
     listenWindowMessages();
     
     
@@ -476,6 +483,7 @@ function createWindow() {
     
     // Emitted when the window is closed.
     mainWindow.on('closed', function() {
+        mainWindowIsReady = false;
         // Dereference the window object, usually you would store windows
         // in an array if your app supports multi windows, this is the time
         // when you should delete the corresponding element.
@@ -485,38 +493,7 @@ function createWindow() {
     
     
 }
-/*
-function createMonitorWindow() {
 
-     if (monitorWindow) {
-        monitorWindow.focus(); // Bring the existing window to the front
-        return;
-    }
-
-    monitorWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
-        backgroundColor: "#000",
-        resizable: true,  // Prevent window from being resizable
-        autoHideMenuBar: true,  // Hide the default menu bar
-        devTools: true,  // Disable the developer tools
-        webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false,
-            enableRemoteModule: false // For Electron v10+, if you want to use electron-settings within a browser window, set to true 
-        }
-    });
-    
-     monitorWindow.on('closed', () => {
-        monitorWindow = undefined;
-    });
-
-    monitorWindow.loadFile('monitor.html');
-    
-     monitorWindow.webContents.openDevTools();
-
-}
-*/
 // SETTINGS
 ////////////
 
@@ -594,6 +571,13 @@ app.on('activate', function() {
 
 
 app.on('will-quit', () => {
+
+    mainWindowIsReady = false;
+
+    oscSlipClose();
+    oscWebSocketClose();
+    oscUdpClose();
+
     // Example string array
     const exitMessagesArray = ["We condemn the invasion of Ukraine by Poutine.", "We condemn the Palestinian apartheid!", "Freedom for all!", "Every worker should have the same rights, even seasonal and internationnal workers", "Be kind to animals!", "Be kind to plants!"];
 
@@ -604,5 +588,7 @@ app.on('will-quit', () => {
     const randomElement = exitMessagesArray[randomIndex];
 
     console.log(randomElement);
+
+    
 
   });
