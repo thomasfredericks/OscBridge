@@ -58,7 +58,7 @@
             border-radius: 5px;
             margin-top: 10px;
             cursor: pointer;
-            width: 100%;
+            /*width: 100%;*/
         }
         /*
         .form-group button:hover {
@@ -116,8 +116,9 @@
                         <option>3000000</option>
                     </select>
                     <br>
-                    <button id="connect-serial-button" type="button" disabled>🔌 Connect Serial</button>
                     
+                    <button id="connect-serial-button" type="button" disabled>Connect Serial 🔌</button>
+                    <button id="monitor-serial" type="button" >Monitor</button>
                     
                 </section>
                 
@@ -135,8 +136,9 @@
                     
                     <input type="text" id="udp-send-port" name="udp-send-port"  value="8001" disabled>
                     <br>
-                    <button id="connect-udp-button" type="button" disabled>📢 Start UDP</button>
                     
+                    <button id="connect-udp-button" type="button" disabled>Start UDP 📢</button>
+                    <button id="monitor-udp" type="button" >Monitor</button>
                 </section>
                 
                 <section class="form-group">
@@ -144,23 +146,22 @@
                     <label for="websocket-port">Port</label>
                     <input type="text" id="websocket-port" name="websocket-port"  value="8080" disabled>
                     <br>
-                    <button id="connect-websocket-button" type="button" disabled>🌐 Start WebSocket</button>
                     
+                    <button id="connect-websocket-button" type="button" disabled>Start WebSocket 🌐</button>
+                    <button id="monitor-websocket" type="button" >Monitor</button>
                     
                 </section>
             </div>
         </div>
         <div class="table-column">
             <section class="form-group">
-                <h3>Monitor</h3>
-                <input type="text" id="monitor-filter" placeholder="Type to filter messages...">
-                <button id="monitor-listen" type="button" >👂 Listen</button>
-                    <div>
-                        <pre id="osc-output" ></pre>
-                    </div>
-                </section>
-           
-            
+                <h3>Monitor 👂 </h3>
+                <input type="text" id="monitor-filter" placeholder="Type to filter incomming messages...">
+                
+                <div>
+                    <pre id="osc-output" ></pre>
+                </div>
+            </section> 
         </div>
     </div>
    
@@ -249,11 +250,11 @@ let websocketStatus = {
         } 
         
         if ( serialStatus.state == "opened" ) {
-            serialConnectButton.innerText = '🔌 Disconnect Serial';
+            serialConnectButton.innerText = 'Disconnect Serial 🔌';
             serialPathSelector.disabled = true;
             serialBaudSelector.disabled = true;
         } else {
-            serialConnectButton.innerText = '🔌 Connect Serial';
+            serialConnectButton.innerText = 'Connect Serial 🔌';
             serialPathSelector.disabled = false;
             serialBaudSelector.disabled = false;
         }
@@ -280,12 +281,12 @@ let websocketStatus = {
         udpStatus = data.status;
 
         if ( udpStatus.state == "opened"  ) {
-            udpConnectButton.innerText = '📢 Stop UDP';
+            udpConnectButton.innerText = 'Stop UDP 📢';
             udpSendIpInput.disabled = true;
             udpSendPortInput.disabled = true;
             udpReceivePortInput.disabled = true;
         } else {
-            udpConnectButton.innerText = '📢 Start UDP';
+            udpConnectButton.innerText = 'Start UDP 📢';
             udpSendIpInput.disabled = false;
             udpSendPortInput.disabled = false;
             udpReceivePortInput.disabled = false;
@@ -309,12 +310,12 @@ let websocketStatus = {
         websocketStatus = data.status;
 
         if ( websocketStatus.state == "opened" ) {
-            webSocketConnectButton.innerText = '📢 Stop WebSocket';
+            webSocketConnectButton.innerText = 'Stop WebSocket 🌐';
             webSocketPortInput.disabled = true;
         } else if (websocketStatus.state == "opening" ) {
             
         } else {
-            webSocketConnectButton.innerText  = '📢 Start WebSocket';
+            webSocketConnectButton.innerText  = 'Start WebSocket 🌐';
             webSocketPortInput.disabled= false;
         }
         
