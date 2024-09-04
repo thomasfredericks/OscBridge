@@ -24,7 +24,26 @@ function sendSync(name,o) {
 // MONITOR
 //////////
 
-let monitorListening = false;
+let monitorSerial = false;
+let monitorUdp = false;
+let monitorWebsocket = false;
+
+const monitorDateOptions = {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false // Set to true for 12-hour format with AM/PM
+  };
+
+function monitorLog(msg) {
+    console.log(msg);
+    if (mainWindowIsReady) {
+        const now = new Date();
+        const time = now.toLocaleTimeString('en-US', monitorDateOptions);
+        mainWindow.webContents.send('monitor', {type:"log",data:{time:time,msg:msg}});
+    }
+}
+
 
 
 // SERIAL
@@ -70,8 +89,14 @@ async function getSerialPaths() {
 function oscSlipOnMessage (oscMessage) {
 
             // Send the updated messages to the monitoring window
-            if (monitorListening && mainWindowIsReady) {
-                mainWindow.webContents.send('monitor-message', {source:"serial",oscMessage:oscMessage});
+            
+            if (monitorSerial && mainWindowIsReady) {
+                
+                const now = new Date();
+                
+                const time = now.toLocaleTimeString('en-US', monitorDateOptions);
+               
+                mainWindow.webContents.send('monitor', {type:"osc-message", data:{source:"Serial",time:time,oscMessage:oscMessage}});
             }
             /*
             if ( oscSlip )  {
@@ -91,7 +116,7 @@ function oscSlipOnMessage (oscMessage) {
 
 function oscSlipOnClose() {
     // THIS SHOULD ONLY BE CALLLED only IF THE SERIAL WAS PHYSICALLY DISCONNECTED
-    console.log("Serial was disconnect");
+    monitorLog("Serial was disconnect");
     oscSlip = undefined;
     serialStatus.state = "error";
     sendSync("serial",serialSync);
@@ -101,7 +126,7 @@ function oscSlipOnClose() {
 function oscSlipOnOpen() {
     serialStatus.state = "opened";
     //serialConnectButton.innerText = '🔌 Disconnect Serial';
-    console.log("Opened serial port "+serialSettings.path+" with baud "+serialSettings.baud);
+    monitorLog("Opened serial port "+serialSettings.path+" with baud "+serialSettings.baud);
     storeSetting("serial",serialSettings);
     sendSync("serial",serialSync);
     oscSlip.on("close", oscSlipOnClose);
@@ -115,6 +140,7 @@ function oscSlipClose(errorFlag) {
         oscSlip = undefined;
         serialStatus.state = "closed";
         sendSync("serial",serialSync);
+        monitorLog("Serial was closed");
     }
 }
 
@@ -126,7 +152,7 @@ function oscSlipOnError(error) {
     console.log("error.name: " + error.name);
     */
     if ( error.message == "Port is not open" || error.message.includes("Access denied") || error.message == undefined) {
-        console.log("Serial SLIP error (port missing or opened by another application)!");
+        monitorLog("Serial SLIP error (port missing or opened by another application)!");
         oscSlip = undefined;
         serialStatus.state = "error";
         sendSync("serial",serialSync);
@@ -217,7 +243,7 @@ function oscUdpClose(errorFlag) {
 }
 
 function oscUdpOnError(error) {
-    console.log(error);
+    monitorLog("udp error"+error.message);
     oscUdpClose(true);
 }
 
@@ -226,9 +252,9 @@ function oscUdpOnReady() {
     udpStatus.state = "opened";
     var ipAddresses = getIPAddresses();
     
-    console.log("Started UDP and listening on the following ports: ");
+    monitorLog("Started UDP and listening on the following ports: ");
     ipAddresses.forEach(function (address) {
-        console.log(" Host:", address + ", Port:", oscUdp.options.localPort);
+        monitorLog("Host: "+address + " Port: " + oscUdp.options.localPort);
     });
     storeSetting("udp",udpSettings);
     sendSync("udp",udpSync);
@@ -239,8 +265,11 @@ function oscUdpOnReady() {
 function oscUdpOnMessage(oscMessage) {
 
             // Send the updated messages to the monitoring window
-            if (monitorListening && mainWindowIsReady) {
-                mainWindow.webContents.send('monitor-message', {source:"udp",oscMessage:oscMessage});
+
+            if (monitorUdp && mainWindowIsReady) {
+                const now = new Date();
+                const time = now.toLocaleTimeString('en-US', monitorDateOptions);
+                mainWindow.webContents.send('monitor', {type:"osc-message",data:{source:"UDP",time:time,oscMessage:oscMessage}});
             }
             
             if ( oscSlip )  {
@@ -322,7 +351,7 @@ function oscWebSocketOpen(port) {
     sendSync("websocket",websocketSync);
     
     wss.on('listening', () => {
-        console.log('WebSocket server is listening on port '+websocketSettings.port);
+        monitorLog('WebSocket server is listening on port '+websocketSettings.port);
         websocketStatus.state = "opened";
         storeSetting("websocket",websocketSettings);
         sendSync("websocket",websocketSync);
@@ -330,7 +359,7 @@ function oscWebSocketOpen(port) {
     
     // Listen for connection events
     wss.on('connection', (ws) => {
-        console.log('A new WebSocket client connected!');
+        monitorLog('A new WebSocket client connected!');
         
         
         let oscWebSocket = new osc.WebSocketPort({
@@ -351,8 +380,11 @@ function oscWebSocketOpen(port) {
             // Send the updated messages to the monitoring window
           
             // Send the updated messages to the monitoring window
-            if (monitorListening && mainWindowIsReady ) {
-                mainWindow.webContents.send('monitor-message', {source:"websocket",oscMessage:oscMessage});
+
+            if (monitorWebsocket && mainWindowIsReady) {
+                const now = new Date();
+                const time = now.toLocaleTimeString('en-US', monitorDateOptions);
+                mainWindow.webContents.send('monitor', {type:"osc-message",data:{source:"WebSocket",time:time,oscMessage:oscMessage}});
             }
 
             clients.forEach((client) => {
@@ -371,7 +403,7 @@ function oscWebSocketOpen(port) {
         
         // Handle connection close
         oscWebSocket.on('close', () => {
-            console.log('A WebSocket client disconnected');
+            monitorLog('A WebSocket client disconnected');
             // Remove the client from the set
             clients.delete(oscWebSocket);
             //console.log(clients.size);
@@ -431,7 +463,25 @@ function listenWindowMessages() {
     });
 
     ipcMain.on('monitor', (event, msg) => {
-        
+
+        if ( msg.type == "open") {
+            if (msg.data == "serial") {
+                monitorSerial = true;
+            } else if (msg.data == "udp") {
+                monitorUdp = true;
+            } else if (msg.data == "websocket") {
+                monitorWebsocket = true;
+            }
+        } else  if ( msg.type == "close") {
+            if (msg.data == "serial") {
+                monitorSerial = false;
+            } else if (msg.data == "udp") {
+                monitorUdp = false;
+            } else if (msg.data == "websocket") {
+                monitorWebsocket = false;
+            }
+        } 
+        /*
         if ( msg.target == "listen") {
             if ( msg.type == "open" ) {
                 monitorListening = true;
@@ -441,7 +491,7 @@ function listenWindowMessages() {
                 console.log("ipcMain received unknow message");
             }
         } 
-
+        */
     });
 
 }
@@ -525,9 +575,9 @@ function loadSetting(name,o) {
 ////////
 
 async function start() {
-    console.log("--------------------------------");
-    console.log("OscBridge by Thomas O Fredericks");
-    console.log("--------------------------------");
+    monitorLog("--------------------------------");
+    monitorLog("OscBridge by Thomas O Fredericks");
+    monitorLog("--------------------------------");
     //const args = process.argv.slice(2); // Skip the first two elements
     const args = process.argv;
     headless = args.includes('--headless');
