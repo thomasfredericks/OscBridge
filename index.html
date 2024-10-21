@@ -92,14 +92,14 @@
         <div class="table-column">
             <div class="form-container">
                 <section class="form-group">
-                    <h3>Serial Settings</h3>
+                    <h3>slip Settings</h3>
                     
-                    <label for="serial-port-selector">Port</label>
-                    <select id="serial-port-selector" name="serial-port-selector" disabled>
+                    <label for="slip-port-selector">Port</label>
+                    <select id="slip-port-selector" name="slip-port-selector" disabled>
                     </select>
                     <br>
-                    <label for="serial-baud-selector">Baud</label>
-                    <select id="serial-baud-selector" name="serial-baud-selector" disabled>
+                    <label for="slip-baud-selector">Baud</label>
+                    <select id="slip-baud-selector" name="slip-baud-selector" disabled>
                         <option>9600</option>
                         <option>19200</option>
                         <option>31250</option>
@@ -117,8 +117,8 @@
                     </select>
                     <br>
                     
-                    <button id="connect-serial-button" type="button" disabled>Connect Serial 🔌</button>
-                    <button id="monitor-serial" type="button" >Monitor</button>
+                    <button id="connect-slip-button" type="button" disabled>Connect slip 🔌</button>
+                    <button id="monitor-slip" type="button" >Monitor</button>
                     
                 </section>
                 
@@ -180,9 +180,9 @@
     //const  express = require("express");
     //const webSocket = require("ws");
     
-    const serialConnectButton = document.getElementById ('connect-serial-button');
-    const serialPathSelector = document.getElementById ('serial-port-selector');
-    const serialBaudSelector = document.getElementById ('serial-baud-selector');
+    const slipConnectButton = document.getElementById ('connect-slip-button');
+    const slipPathSelector = document.getElementById ('slip-port-selector');
+    const slipBaudSelector = document.getElementById ('slip-baud-selector');
     
     const udpConnectButton = document.getElementById ('connect-udp-button');
     const udpSendIpInput = document.getElementById ('udp-send-ip');
@@ -191,18 +191,27 @@
     
     const webSocketConnectButton = document.getElementById ('connect-websocket-button');
     const webSocketPortInput = document.getElementById ('websocket-port');
+
+
     
+    let slipInitialized = false;
     
-    let serialSettings= {
+    let slipSettings= {
     path:"", 
     baud:115200, 
-
+    
 };
 
-let serialStatus = {
+let slipSync = {
+    type:'sync',
+    settings:slipSettings,
     paths:[],
-    state:"closed"
+    state:"closed",
+    msg:''
 }
+
+
+let udpInitialized = false;
 
 let udpSettings =  {
     sendPort: 8001,
@@ -214,6 +223,9 @@ let udpSettings =  {
 let udpStatus = {
     state: "closed"
 }
+
+let websocketInitialized = false;
+
 
 let websocketSettings =  {
     port: 8080
@@ -228,48 +240,61 @@ let websocketStatus = {
     
     
     function updateSerial(data) {
-        serialSettings = data.settings;
-        serialStatus = data.status;
+        slipSync = data;
+        slipSetting = slipSync.settings;
         
-        serialConnectButton.disabled = true;
+        slipConnectButton.disabled = true;
 
-        if (serialStatus.paths.length > 0) {
-            serialConnectButton.disabled = false;
+        if (slipSync.paths.length > 0) {
+            slipConnectButton.disabled = false;
             
             // Empty the selector... this is gross how this is done...
-            serialPathSelector.innerHTML = "";
+            slipPathSelector.innerHTML = "";
             // Fill the selector
-            serialStatus.paths.forEach(function (path) {       
+            slipSync.paths.forEach(function (path) {       
                 const option = document.createElement("option");            
                 option.text = path;    
                 // Set option as selected
-                if ( path == serialSettings.path) option.selected = true;        
-                serialPathSelector.add(option);
+                if ( path == slipSettings.path) option.selected = true;        
+                slipPathSelector.add(option);
             });       
             
         } 
         
-        if ( serialStatus.state == "opened" ) {
-            serialConnectButton.innerText = 'Disconnect Serial 🔌';
-            serialPathSelector.disabled = true;
-            serialBaudSelector.disabled = true;
+        if ( slipSync.state == "opened" ) {
+            slipConnectButton.innerText = 'Disconnect slip 🔌';
+            slipPathSelector.disabled = true;
+            slipBaudSelector.disabled = true;
         } else {
-            serialConnectButton.innerText = 'Connect Serial 🔌';
-            serialPathSelector.disabled = false;
-            serialBaudSelector.disabled = false;
+            slipConnectButton.innerText = 'Connect slip 🔌';
+            slipPathSelector.disabled = false;
+            slipBaudSelector.disabled = false;
         }
 
-        serialConnectButton.style.backgroundColor = buttonColors[serialStatus.state].backgroundColor;
-        serialConnectButton.style.color = buttonColors[serialStatus.state].color;
+        slipConnectButton.style.backgroundColor = buttonColors[slipSync.state].backgroundColor;
+        slipConnectButton.style.color = buttonColors[slipSync.state].color;
 
-
-        /*
+        if ( slipInitialized == false ) {
+            slipConnectButton.addEventListener('click', function () {
+                        if ( slipSync.state == "opened"  ) {
+                            slipConnectButton.disabled = true;
+                            ipcRenderer.send('message', {target:"slip", type:"close"});
+                        } else {
+                            slipConnectButton.disabled = true;
+                            slipSettings.baud = parseInt(slipBaudSelector.value);
+                            slipSettings.path = slipPathSelector.value;
+                            ipcRenderer.send('message', {target:"slip", type:"open", settings: slipSettings});
+                        }
+                    });
+            slipInitialized = true;       
+        }
+      /*
         // ACTIVATE PROPER OPTION
-        for (let i = 0; i < serialPathSelector.options.length; i++) {
+        for (let i = 0; i < slipPathSelector.options.length; i++) {
             // Check if the option's text matches the specified text
-            if (serialPathSelector.options[i].text === data.serial.path) {
+            if (slipPathSelector.options[i].text === data.slip.path) {
                 // Set the selectedIndex property to the index of the matching option
-                serialPathSelector.selectedIndex = i;
+                slipPathSelector.selectedIndex = i;
                 break;
             }
         }
@@ -302,6 +327,22 @@ let websocketStatus = {
         udpConnectButton.style.color = buttonColors[udpStatus.state].color;
 
         udpConnectButton.disabled = false;
+
+        if ( udpInitialized == false ) {
+            udpConnectButton.addEventListener('click', function () {
+                        if ( udpStatus.state == "opened" ) {
+                            udpConnectButton.disabled = true;
+                            ipcRenderer.send('message', {target:"udp", type:"close"});
+                        } else {
+                            udpConnectButton.disabled = true;
+                            udpSettings.receivePort = udpReceivePortInput.value;
+                            udpSettings.sendIp = udpSendIpInput.value;
+                            udpSettings.sendPort = udpSendPortInput.value;
+                            ipcRenderer.send('message', {target:"udp", type:"open", settings:udpSettings});
+                        }
+                    });
+                    udpInitialized = true;
+        }
         
     }
     
@@ -326,11 +367,25 @@ let websocketStatus = {
         webSocketConnectButton.style.color = buttonColors[websocketStatus.state].color;
         
         webSocketConnectButton.disabled = false;
+
+        if ( websocketInitialized == false ) {
+            webSocketConnectButton.addEventListener('click', function () {
+                        if ( websocketStatus.state == "opened" || websocketStatus.state == "opening" ) {
+                            webSocketConnectButton.disabled = true;
+                            ipcRenderer.send('message', {target:"websocket", type:"close"});
+                        } else {
+                            webSocketConnectButton.disabled = true;
+                            websocketSettings.port = webSocketPortInput.value;
+                            ipcRenderer.send('message', {target:"websocket", type:"open", settings:websocketSettings});
+                        }
+                    });
+                    websocketInitialized = true;
+        }
     }
     
-    ipcRenderer.on('serial', (event, msg) => {
+    ipcRenderer.on('slip', (event, msg) => {
         if ( msg.type == "sync") {
-            updateSerial(msg.data);
+            updateSerial(msg);
         } else {
             console.log("ipcRenderer received unknown message");
         }
@@ -339,7 +394,7 @@ let websocketStatus = {
     ipcRenderer.on('udp', (event, msg) => {
         
         if ( msg.type == "sync") {
-            updateUdp(msg.data);
+            updateUdp(msg);
         } else {
             console.log("ipcRenderer received unknown message");
         }
@@ -347,63 +402,22 @@ let websocketStatus = {
 
     ipcRenderer.on('websocket', (event, msg) => {
         if ( msg.type == "sync") {
-            updateWebsocket(msg.data);
+            updateWebsocket(msg);
         } else {
             console.log("ipcRenderer received unknown message");
         }
     });
-
+/*
     ipcRenderer.on('global', (event, msg) => {
-        if ( msg.type == "sync") {
+       
 
-            console.log(msg);
-            
-            updateSerial(msg.data.serial);
-            updateUdp(msg.data.udp);
-            updateWebsocket(msg.data.websocket);
-
-            console.log("yes");
-                
-                if (!initialized) {
-
-                    console.log("initializing");
-                    serialConnectButton.addEventListener('click', function () {
-                        if ( serialStatus.state == "opened"  ) {
-                            serialConnectButton.disabled = true;
-                            ipcRenderer.send('command', {target:"serial", type:"close"});
-                        } else {
-                            serialConnectButton.disabled = true;
-                            ipcRenderer.send('command', {target:"serial", type:"open", args:{path:serialPathSelector.value,baud:parseInt(serialBaudSelector.value)}});
-                        }
-                    });
-                    
-                    udpConnectButton.addEventListener('click', function () {
-                        if ( udpStatus.state == "opened" ) {
-                            udpConnectButton.disabled = true;
-                            ipcRenderer.send('command', {target:"udp", type:"close"});
-                        } else {
-                            udpConnectButton.disabled = true;
-                            ipcRenderer.send('command', {target:"udp", type:"open", args:{receivePort:udpReceivePortInput.value,sendIp:udpSendIpInput.value, sendPort:udpSendPortInput.value}});
-                        }
-                    });
-                    
-                    webSocketConnectButton.addEventListener('click', function () {
-                        if ( websocketStatus.state == "opened" || websocketStatus.state == "opening" ) {
-                            webSocketConnectButton.disabled = true;
-                            ipcRenderer.send('command', {target:"websocket", type:"close"});
-                        } else {
-                            webSocketConnectButton.disabled = true;
-                            ipcRenderer.send('command', {target:"websocket", type:"open", args:{port:webSocketPortInput.value}});
-                        }
-                    });
-                }
-                initialized = true;
-        } else {
             console.log("ipcRenderer received unknown message");
-        }
+            conssole.log('global');
+            conssole.log('msg');
+        
     });
 
-
+*/
 
     
     
@@ -457,7 +471,7 @@ let websocketStatus = {
 
     
 
-    ipcRenderer.send('global', {type:'sync'});
+    ipcRenderer.send('global', {type:'syncrequest'});
     
     
 </script>

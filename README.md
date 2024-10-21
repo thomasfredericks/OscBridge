@@ -19,3 +19,21 @@ A bridge between Serial SLIP, OSC UDP and OSC WebSocket made in Electron.
 ### Build notes
 
 - Do **not** use the *packed* (single *.exe*) of the Windows build. Use the version that is inside a folder, i.e. the *unpacked* version. The packed version needs to be decompressed everytime it is launched and does not behave properly in *headless* mode.
+
+### Inner messaging
+
+From Main to Worker 
+* 'message' , {type:'open', settings: ... }
+* 'message' , {type:'close'}
+* 'message' , {type:'syncrequest'}
+
+From Worker to Main
+* 'message' , {type:'osc', message: oscmessage }
+* 'message' , {type:'sync', state: 'opened'/'opening'/'closed'/'error', settings: ... , ...}
+
+From Manager to Window
+* name , {type:'sync', state: 'opened'/'opening'/'closed'/'error', settings: ... , ...}
+* 'monitor' , {type:'osc', source: name, msg: oscmessage }
+
+From Main to Window
+* 'log' , {msg: message }

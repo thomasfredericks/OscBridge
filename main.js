@@ -1,3 +1,312 @@
+const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
+const path = require('path');
+const url = require('url');
+const { Worker } = require('worker_threads');
+const electronSettings = require('electron-settings');
+const os = require("os");
+
+let mainWindow;
+let mainWindowIsReady = false;
+
+// Utility to send sync messages to renderer
+function sendToMainWindow(name, message) {
+  if (mainWindowIsReady) mainWindow.webContents.send(name, message);
+}
+
+function monitorLog(message) {
+    sendToMainWindow('log', {msg:message});
+}
+
+const monitorDateOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+
+class TransportManager {
+    constructor(name,workerFile) {
+        this.name = name;
+        this.isReady = false;
+        this.monitor = false;
+        //this.workerFile = workerFile; ;
+        this.worker = new Worker(path.join(__dirname, workerFile));
+        this.worker.on('message', (msg) => {
+            if (msg.type === 'osc') {
+              if (this.monitor) {
+                //const now = new Date();
+                //const time = now.toLocaleTimeString('en-US', monitorDateOptions);
+                msg.source = this.name;
+                sendToMainWindow('log', msg);
+              }
+            } else if (msg.type === 'sync') {
+                console.log("Got sync");
+                console.log(msg);
+                if ( msg.state === 'opened' ) {
+                    this.isReady = true;
+                    storeSetting(this.name,msg.settings);
+                } else {
+                    this.isReady = false;
+                }
+                sendToMainWindow(this.name, msg);
+            }
+        });
+    }
+}
+const slipManager = new TransportManager('slip','slipWorker.js');
+
+
+/*
+// Load worker for UDP
+let udpWorkerReady = false;
+const udpWorker = new Worker(path.join(__dirname, 'udpWorker.js'));
+udpWorker.on('message', (msg) => {
+  if (msg.type === 'monitor') {
+    monitorLog(msg.data);
+  } else if (msg.type === 'sync') {
+    sendToMainWindow('udp', msg.data);
+  }
+});
+
+// Load worker for WebSocket
+let wsWorkerReady = false;
+const wsWorker = new Worker(path.join(__dirname, 'websocketWorker.js'));
+wsWorker.on('message', (msg) => {
+  if (msg.type === 'monitor') {
+    monitorLog(msg.data);
+  } else if (msg.type === 'sync') {
+    sendToMainWindow('websocket', msg.data);
+  }
+});
+*/
+
+
+function listenWindowMessages() {
+    // Handle message from renderer process
+    ipcMain.on('global', (event, msg) => {
+        
+        if ( msg.type == "syncrequest" ) {
+            console.log("Received syncrequest");
+            slipManager.worker.postMessage(msg);
+
+            //sendToMainWindow("global", {serial:serialSync,udp:udpSync,websocket:websocketSync});
+            
+        } else {
+            console.log("ipcMain received unknow message");
+            console.log(msg);
+        }
+    });
+    
+    ipcMain.on('message', (event, msg) => {
+        
+        if ( msg.target == "slip") {
+            slipManager.worker.postMessage(msg);
+           
+        } /*else if (  msg.target == "udp" ) {
+            if ( msg.type == "open" ) {
+                oscUdpOpen(msg.args.receivePort ,msg.args.sendIp, msg.args.sendPort);
+            } else if ( msg.type == "close") {
+                oscUdpClose();
+            }  else {
+                console.log("ipcMain received unknow message");
+            }
+        } else if ( msg.target == "websocket" ) {
+            if ( msg.type == "open" ) {
+                oscWebSocketOpen(msg.args.port);
+            } else if ( msg.type == "close") {
+                oscWebSocketClose();
+            } else {
+                console.log("ipcMain received unknow message");
+            }
+            
+        } */
+        else {
+            console.log("ipcMain received unknow message");
+            console.log(msg);
+        }
+    });
+
+    ipcMain.on('monitor', (event, msg) => {
+
+        if ( msg.type == "open") {
+            if (msg.data == "serial") {
+                monitorSerial = true;
+            } else if (msg.data == "udp") {
+                monitorUdp = true;
+            } else if (msg.data == "websocket") {
+                monitorWebsocket = true;
+            }
+        } else  if ( msg.type == "close") {
+            if (msg.data == "serial") {
+                monitorSerial = false;
+            } else if (msg.data == "udp") {
+                monitorUdp = false;
+            } else if (msg.data == "websocket") {
+                monitorWebsocket = false;
+            }
+        } 
+
+    });
+
+}
+
+function createWindow() {
+    
+    // Create the browser window.
+    mainWindow = new BrowserWindow({
+        width: 800,
+        height: 600, 
+        backgroundColor: "#ccc",
+        resizable: false,  // Prevent window from being resizable
+        autoHideMenuBar: true,  // Hide the default menu bar
+
+        devTools: true,  // Disable the developer tools
+
+        webPreferences: {
+            nodeIntegration: true, // to allow require
+            contextIsolation: false, // allow use with Electron 12+
+            enableRemoteModule: false // For Electron v10+, if you want to use electron-settings within a browser window, set to true 
+        }
+        
+    })
+    
+    mainWindowIsReady = true;
+
+    listenWindowMessages();
+    
+    
+    // and load the index.html of the app.
+    mainWindow.loadURL(url.format({
+        pathname: path.join(__dirname, 'index.html'),
+        protocol: 'file:',
+        slashes: true
+    }))
+    
+    // Open the DevTools.
+    
+    globalShortcut.register('Ctrl+Shift+I', () => {
+        mainWindow.webContents.openDevTools({ mode: 'detach' });
+    });
+    
+    // Emitted when the window is closed.
+    mainWindow.on('closed', function() {
+        mainWindowIsReady = false;
+        // Dereference the window object, usually you would store windows
+        // in an array if your app supports multi windows, this is the time
+        // when you should delete the corresponding element.
+        mainWindow = null;
+        app.quit();
+    })
+    
+    
+}
+
+// SETTINGS
+////////////
+
+function storeSetting(name,o) {
+    
+    electronSettings.setSync(name,o);
+}
+/*
+function loadSetting(name,o) {
+    if (electronSettings.hasSync(name)) {
+        let settingObject = electronSettings.getSync(name);
+        Object.keys(o).forEach(key => {
+            if ( key in settingObject ) {
+                o[key] = settingObject[key];
+                //console.log("Found "+key+" for "+name+" as "+o[key] );
+            }
+            
+        });
+        return true;
+    } else {
+        return false;
+    }
+    
+}
+*/
+
+
+
+// MAIN
+////////
+
+async function start() {
+    monitorLog("--------------------------------");
+    monitorLog("OscBridge by Thomas O Fredericks");
+    monitorLog("--------------------------------");
+    //const args = process.argv.slice(2); // Skip the first two elements
+    const args = process.argv;
+    headless = args.includes('--headless');
+    if (headless) console.log('Running in headless mode');
+        
+    //serialStatus.paths= await getSerialPaths();
+
+    
+    // LOAD SETTINGS AND AUTO-CONNECT IF SETTINGS ARE FOUND
+
+    if ( electronSettings.hasSync(slipManager.name) ) {
+        let tempSettings = electronSettings.getSync(slipManager.name);
+        slipManager.worker.postMessage({type: 'open', settings: tempSettings});
+    }
+    //if ( loadSetting(slipManager,tempSettings) ) oscSlipOpen(serialSettings.path, serialSettings.baud);
+   // if ( loadSetting("udp",tempSettings) ) oscUdpOpen(udpSettings.receivePort, udpSettings.sendIp, udpSettings.sendPort);
+  //  if ( loadSetting("websocket",tempSettings) ) oscWebSocketOpen(websocketSettings.port) ;
+    
+
+    if (!headless) {
+        createWindow();
+         // Create the monitoring window when the app is ready
+        //createMonitorWindow();
+    }
+}
+
+// This method will be called when Electron has finished    
+// initialization and is ready to create browser windows.np
+// Some APIs can only be used after this event occurs.
+app.on('ready', start)
+
+// Quit when all windows are closed.
+app.on('window-all-closed', function() {
+    // On OS X it is common for applications and their menu bar
+    // to stay active until the user quits explicitly with Cmd + Q
+    app.quit()
+})
+
+app.WindowAllClosed += () => app.Exit();
+
+app.on('activate', function() {
+    // On OS X it's common to re-create a window in the app when the
+    // dock icon is clicked and there are no other windows open.
+    if (mainWindow === null) {
+        createWindow();
+    }
+})
+
+
+app.on('will-quit', () => {
+
+    mainWindowIsReady = false;
+
+    //oscSlipClose();
+    slipManager.worker.postMessage({type: 'close'});
+    //oscWebSocketClose();
+    //oscUdpClose();
+
+    // Example string array
+    const exitMessagesArray = ["We condemn the invasion of Ukraine by Poutine.", "We condemn the Palestinian apartheid!", "Freedom for all!", "Every worker should have the same rights, even seasonal and internationnal workers", "Be kind to animals!", "Be kind to plants!"];
+
+    // Get a random index
+    const randomIndex = Math.floor(Math.random() * exitMessagesArray.length);
+
+    // Select the random element
+    const randomElement = exitMessagesArray[randomIndex];
+
+    console.log(randomElement);
+
+    
+
+  });
+
+
+/*
+
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const url = require('url');
@@ -17,7 +326,7 @@ let headless = false;
 
 let mainWindowIsReady = false;
 
-function sendSync(name,o) {
+function sendToMainWindow(name,o) {
     if ( mainWindowIsReady ) mainWindow.webContents.send(name, {type:"sync",data:o});
 }
 
@@ -98,11 +407,7 @@ function oscSlipOnMessage (oscMessage) {
                
                 mainWindow.webContents.send('monitor', {type:"osc-message", data:{source:"Serial",time:time,oscMessage:oscMessage}});
             }
-            /*
-            if ( oscSlip )  {
-                oscSlip.send(oscMessage);
-            }
-    */
+
             if ( oscUdp )  oscUdp.send(oscMessage);
     
             clients.forEach((client) => {
@@ -119,7 +424,7 @@ function oscSlipOnClose() {
     monitorLog("Serial was disconnect");
     oscSlip = undefined;
     serialStatus.state = "error";
-    sendSync("serial",serialSync);
+    sendToMainWindow("serial",serialSync);
     //oscSlip = undefined;
 }
 
@@ -128,7 +433,7 @@ function oscSlipOnOpen() {
     //serialConnectButton.innerText = '🔌 Disconnect Serial';
     monitorLog("Opened serial port "+serialSettings.path+" with baud "+serialSettings.baud);
     storeSetting("serial",serialSettings);
-    sendSync("serial",serialSync);
+    sendToMainWindow("serial",serialSync);
     oscSlip.on("close", oscSlipOnClose);
 }
 
@@ -139,23 +444,23 @@ function oscSlipClose(errorFlag) {
         oscSlip.close();
         oscSlip = undefined;
         serialStatus.state = "closed";
-        sendSync("serial",serialSync);
+        sendToMainWindow("serial",serialSync);
         monitorLog("Serial was closed");
     }
 }
 
 // ONE ERROR IS CALLED IF TRY TO CLOSSE AN UNOPENED
 function oscSlipOnError(error) {
-    /*
-    console.log("error.message: " + error.message);
-    console.log("error.stack: " + error.stack);
-    console.log("error.name: " + error.name);
-    */
+
     if ( error.message == "Port is not open" || error.message.includes("Access denied") || error.message == undefined) {
         monitorLog("Serial SLIP error (port missing or opened by another application)!");
         oscSlip = undefined;
         serialStatus.state = "error";
-        sendSync("serial",serialSync);
+        sendToMainWindow("serial",serialSync);
+    } else {
+        console.log("error.message: " + error.message);
+        console.log("error.stack: " + error.stack);
+        console.log("error.name: " + error.name);
     }
 }
 
@@ -237,7 +542,7 @@ function oscUdpClose(errorFlag) {
             
             udpStatus.state = "closed";
         }
-        sendSync("udp",udpSync);
+        sendToMainWindow("udp",udpSync);
     }
     
 }
@@ -257,7 +562,7 @@ function oscUdpOnReady() {
         monitorLog("Host: "+address + " Port: " + oscUdp.options.localPort);
     });
     storeSetting("udp",udpSettings);
-    sendSync("udp",udpSync);
+    sendToMainWindow("udp",udpSync);
     
 }
 
@@ -275,9 +580,7 @@ function oscUdpOnMessage(oscMessage) {
             if ( oscSlip )  {
                 oscSlip.send(oscMessage);
             }
-    /*
-            if ( oscUdp )  oscUdp.send(oscMessage);
-    */
+
             clients.forEach((client) => {
                 client.send(oscMessage);
             });
@@ -339,7 +642,7 @@ function oscWebSocketClose() {
         wss.close();
         wss = undefined;
         websocketStatus.state = "closed";
-        sendSync("websocket",websocketSync);
+        sendToMainWindow("websocket",websocketSync);
     }
 }
 
@@ -348,13 +651,13 @@ function oscWebSocketOpen(port) {
     oscWebSocketClose();
     wss = new WebSocket.Server({ port: websocketSettings.port });
     websocketStatus.state = "opening";
-    sendSync("websocket",websocketSync);
+    sendToMainWindow("websocket",websocketSync);
     
     wss.on('listening', () => {
         monitorLog('WebSocket server is listening on port '+websocketSettings.port);
         websocketStatus.state = "opened";
         storeSetting("websocket",websocketSettings);
-        sendSync("websocket",websocketSync);
+        sendToMainWindow("websocket",websocketSync);
     });
     
     // Listen for connection events
@@ -422,14 +725,14 @@ function listenWindowMessages() {
     ipcMain.on('global', (event, msg) => {
         
         if ( msg.type == "sync" ) {
-            sendSync("global", {serial:serialSync,udp:udpSync,websocket:websocketSync});
+            sendToMainWindow("global", {serial:serialSync,udp:udpSync,websocket:websocketSync});
             
         } else {
             console.log("ipcMain received unknow message");
         }
     });
     
-    ipcMain.on('command', (event, msg) => {
+    ipcMain.on('message', (event, msg) => {
         
         if ( msg.target == "serial") {
             if ( msg.type == "open" ) {
@@ -481,17 +784,7 @@ function listenWindowMessages() {
                 monitorWebsocket = false;
             }
         } 
-        /*
-        if ( msg.target == "listen") {
-            if ( msg.type == "open" ) {
-                monitorListening = true;
-            } else if ( msg.type == "close") {
-                monitorListening = false;
-            } else {
-                console.log("ipcMain received unknow message");
-            }
-        } 
-        */
+
     });
 
 }
@@ -645,3 +938,4 @@ app.on('will-quit', () => {
 
   });
 
+*/
