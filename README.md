@@ -28,7 +28,7 @@ From Main to Worker
 * 'message' , {type:'syncrequest'}
 
 From Worker to Main
-* 'message' , {type:'osc', message: oscmessage }
+* 'message' , {type:'osc', msg: oscmessage }
 * 'message' , {type:'sync', state: 'opened'/'opening'/'closed'/'error', settings: ... , ...}
 
 From Manager to Window

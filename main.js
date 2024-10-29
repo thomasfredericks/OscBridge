@@ -160,7 +160,8 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: true, // to allow require
             contextIsolation: false, // allow use with Electron 12+
-            enableRemoteModule: false // For Electron v10+, if you want to use electron-settings within a browser window, set to true 
+            enableRemoteModule: false, // For Electron v10+, if you want to use electron-settings within a browser window, set to true 
+            nodeIntegrationInWorker: true,
         }
         
     })
