@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 const url = require('url');
 const electronSettings = require('electron-settings');
@@ -6,6 +6,10 @@ const { SerialPort } = require('serialport');
 const osc = require("osc");
 const os = require("os");
 const WebSocket = require("ws");
+const slip = require("slip");
+
+// Import the dgram module
+const dgram = require('dgram');
 
 //const serial = require("./serial.js");
 
@@ -49,7 +53,11 @@ function monitorLog(msg) {
 // SERIAL
 /////////
 
+// https://www.npmjs.com/package/slip
+
 let oscSlip = undefined;
+
+
 
 let serialSettings= {
     path:"", 
@@ -86,10 +94,13 @@ async function getSerialPaths() {
 }
 
 
-function oscSlipOnMessage (oscMessage) {
-
+function oscSlipOnMessage (msg) {
+    
+    if ( oscUdp )  oscUdpSend(msg);
+    
+    //console.log("A SLIP message was received! Here is it: " + msg);
             // Send the updated messages to the monitoring window
-            
+            /*
             if (monitorSerial && mainWindowIsReady) {
                 
                 const now = new Date();
@@ -98,21 +109,21 @@ function oscSlipOnMessage (oscMessage) {
                
                 mainWindow.webContents.send('monitor', {type:"osc-message", data:{source:"Serial",time:time,oscMessage:oscMessage}});
             }
-            /*
-            if ( oscSlip )  {
-                oscSlip.send(oscMessage);
-            }
-    */
+ 
             if ( oscUdp )  oscUdp.send(oscMessage);
     
             clients.forEach((client) => {
                 client.send(oscMessage);
             });
-    
+    */
 };
 
 
-
+var slipDecoder = new slip.Decoder({
+    onMessage: oscSlipOnMessage,
+    maxMessageSize: 209715200,
+    bufferSize: 2048
+});
 
 function oscSlipOnClose() {
     // THIS SHOULD ONLY BE CALLLED only IF THE SERIAL WAS PHYSICALLY DISCONNECTED
@@ -121,15 +132,6 @@ function oscSlipOnClose() {
     serialStatus.state = "error";
     sendSync("serial",serialSync);
     //oscSlip = undefined;
-}
-
-function oscSlipOnOpen() {
-    serialStatus.state = "opened";
-    //serialConnectButton.innerText = '🔌 Disconnect Serial';
-    monitorLog("Opened serial port "+serialSettings.path+" with baud "+serialSettings.baud);
-    storeSetting("serial",serialSettings);
-    sendSync("serial",serialSync);
-    oscSlip.on("close", oscSlipOnClose);
 }
 
 function oscSlipClose(errorFlag) {
@@ -144,43 +146,55 @@ function oscSlipClose(errorFlag) {
     }
 }
 
-// ONE ERROR IS CALLED IF TRY TO CLOSSE AN UNOPENED
-function oscSlipOnError(error) {
-    /*
-    console.log("error.message: " + error.message);
-    console.log("error.stack: " + error.stack);
-    console.log("error.name: " + error.name);
-    */
-    if ( error.message == "Port is not open" || error.message.includes("Access denied") || error.message == undefined) {
-        monitorLog("Serial SLIP error (port missing or opened by another application)!");
-        oscSlip = undefined;
-        serialStatus.state = "error";
-        sendSync("serial",serialSync);
-    }
-}
 
 function oscSlipOpen(path,baud) {
+
+    console.log(path);
     
     oscSlipClose();
     serialSettings.path = path;
     serialSettings.baud = baud;
     
     // Instantiate a new OSC Serial Port.
-    oscSlip = new osc.SerialPort({
-        devicePath: serialSettings.path, 
-        bitrate: serialSettings.baud, 
-        metadata: true
-    });
+
+    oscSlip = new SerialPort({path: serialSettings.path , baudRate: serialSettings.baud ,  autoOpen: false});
     
     // Listen for the message event and map the OSC message to the synth.
-    oscSlip.on("open", oscSlipOnOpen); //serial.path = data.path;
-    oscSlip.on("error", oscSlipOnError);
-    oscSlip.on("message", oscSlipOnMessage);
+    //oscSlip.on("open", oscSlipOnOpen); //serial.path = data.path;
+
+
+    oscSlip.on('error', (error) => {
+        if ( error.message == "Port is not open" || error.message.includes("Access denied") || error.message == undefined) {
+            monitorLog("Serial SLIP error (port missing or opened by another application)!");
+            oscSlip = undefined;
+            serialStatus.state = "error";
+            sendSync("serial",serialSync);
+        } else {
+            console.log("error.message: " + error.message);
+            console.log("error.stack: " + error.stack);
+            console.log("error.name: " + error.name);
+        }
+    });
+
+    oscSlip.on('data', (data) => {    
+        // Feed incoming data to the SLIP decoder
+        slipDecoder.decode(data);
+    });
+
     
-    //oscSlip.on("raw", oscSlipOnRaw);
-    
-    // Open the port.
-    oscSlip.open();
+    // Open the port
+    oscSlip.open((err) => {
+        if (err) {
+            return console.log('Error opening port:', err.message);
+        }
+        
+        serialStatus.state = "opened";
+        //serialConnectButton.innerText = '🔌 Disconnect Serial';
+        monitorLog("Opened serial port "+serialSettings.path+" with baud "+serialSettings.baud);
+        storeSetting("serial",serialSettings);
+        sendSync("serial",serialSync);
+        oscSlip.on("close", oscSlipOnClose);
+    });
 }
 
 
@@ -254,7 +268,7 @@ function oscUdpOnReady() {
     
     monitorLog("Started UDP and listening on the following ports: ");
     ipAddresses.forEach(function (address) {
-        monitorLog("Host: "+address + " Port: " + oscUdp.options.localPort);
+        monitorLog("Host: "+address + " Port: " + udpSettings.receivePort);
     });
     storeSetting("udp",udpSettings);
     sendSync("udp",udpSync);
@@ -285,6 +299,17 @@ function oscUdpOnMessage(oscMessage) {
 }
 
 
+function oscUdpSend(data) {
+    oscUdp.send(Buffer.from(data), udpSettings.sendPort , udpSettings.sendIp , (err) => {
+        if (err) {
+            console.log('Error sending message:', err);
+        } else {
+            //console.log('Message sent:', data);
+        }
+        // Close the socket after sending the message
+       // oscUdpClose(true);
+    });
+}
 
 function oscUdpOpen(receivePort, sendIp, sendPort) {
     
@@ -292,7 +317,7 @@ function oscUdpOpen(receivePort, sendIp, sendPort) {
     udpSettings.receivePort = receivePort;
     udpSettings.sendIp = sendIp;
     udpSettings.sendPort = sendPort;
-    
+    /*
     oscUdp = new osc.UDPPort({
         localAddress: "0.0.0.0",
         localPort: udpSettings.receivePort,
@@ -300,6 +325,16 @@ function oscUdpOpen(receivePort, sendIp, sendPort) {
         remotePort: udpSettings.sendPort,
         remoteAddress: udpSettings.sendIp
     });
+*/
+
+   // Create a UDP socket
+   oscUdp = dgram.createSocket('udp4');
+
+   // CHEAT THAT NEEDS TO BE REMOVED
+
+   oscUdpOnReady();
+
+/*
     oscUdp.on("ready", oscUdpOnReady);
     
     oscUdp.on("message", oscUdpOnMessage);
@@ -308,6 +343,7 @@ function oscUdpOpen(receivePort, sendIp, sendPort) {
     oscUdp.on("error", oscUdpOnError);
     
     oscUdp.open();
+    */
 }
 
 
