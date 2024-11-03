@@ -7,9 +7,26 @@ const osc = require("osc");
 const os = require("os");
 const WebSocket = require("ws");
 const slip = require("slip");
-
+const { Worker } = require('worker_threads');
 
 const udpWorker = new Worker(path.resolve(__dirname, 'udpWorker.js'));
+
+let udpSettings =  {
+    sendPort: 8001,
+    receivePort: 8000,
+    sendIp: "127.0.0.1"
+    
+}
+
+let udpStatus = {
+    state: "closed"
+}
+
+let udpSync = {
+    settings: udpSettings,
+    status: udpStatus,
+    type:"udp"
+}
 
 //const serial = require("./serial.js");
 
@@ -20,6 +37,8 @@ let mainWindow;
 let headless = false;
 
 let mainWindowIsReady = false;
+
+
 
 function sendSync(name,o) {
     if ( mainWindowIsReady ) mainWindow.webContents.send(name, {type:"sync",data:o});
@@ -96,8 +115,13 @@ async function getSerialPaths() {
 
 function oscSlipOnMessage (msg) {
 
-    if ( msg.length % 4 != 0) console.log("Error");
-    
+    if ( msg.length % 4 != 0) {
+        const now = new Date();
+        const time = now.toLocaleTimeString('en-US', monitorDateOptions);
+        console.log(time+" Error");
+    }
+    udpWorker.postMessage({ type: 'send', buffer: msg });
+
     //if ( oscUdp )  oscUdpSend(msg);
     
     //console.log("A SLIP message was received! Here is it: " + msg);
@@ -129,10 +153,12 @@ var slipDecoder = new slip.Decoder({
 
 
 function oscSlipSend(buf) {
-   
+   if ( oscSlip) {
     let encoded = slip.encode(buf);
     
     oscSlip.write(encoded);
+   }
+
 }
 
 function oscSlipOnClose() {
@@ -296,7 +322,7 @@ function oscWebSocketOpen(port) {
                 oscSlip.send(oscMessage);
             }
     
-            if ( oscUdp )  oscUdp.send(oscMessage);
+            udpWorker.postMessage({ type: 'send', buffer: oscMessage}); //oscUdp.send(oscMessage);
     
         });
         
@@ -340,9 +366,11 @@ function listenWindowMessages() {
             }
         } else if (  msg.target == "udp" ) {
             if ( msg.type == "open" ) {
-                oscUdpOpen(msg.args.receivePort ,msg.args.sendIp, msg.args.sendPort);
+               
+                udpWorker.postMessage({ type: 'open', settings:args});
             } else if ( msg.type == "close") {
-                oscUdpClose();
+                udpWorker.postMessage({ type: 'close'});
+                
             }  else {
                 console.log("ipcMain received unknow message");
             }
@@ -488,9 +516,9 @@ async function start() {
     // LOAD SETTINGS AND AUTO-CONNECT IF SETTINGS ARE FOUND
 
     if ( loadSetting("serial",serialSettings) ) oscSlipOpen(serialSettings.path, serialSettings.baud);
-    if ( electronSettings.hasSync("udp") ) {
-        let tempSettings = electronSettings.getSync(udp);
-        udpWorker.postMessage({type: 'open', settings: tempSettings});
+    if ( electronSettings.hasSync('udp') ) {
+        udpSettings = electronSettings.getSync('udp');
+        udpWorker.postMessage({type: 'open', settings: udpSettings});
     }
     /*
     if ( loadSetting("udp",udpSettings) )  oscUdpOpen(udpSettings.receivePort, udpSettings.sendIp, udpSettings.sendPort);
@@ -553,3 +581,19 @@ app.on('will-quit', () => {
 
   });
 
+
+  udpWorker.on('message', (msg) => {
+    if (msg.type === 'received' ) {
+        oscSlipSend(msg.buffer);
+    } else if (msg.type === 'log') {
+       monitorLog(msg.message)
+    } else if (msg.type === 'error') {
+        monitorLog(msg.message)
+    } else if (msg.type === 'settings') {
+        udpSettings = msg.settings
+        storeSetting("udp",msg.settings);
+    } else if (msg.type === 'sync') {
+        udpSync = msg.sync;
+        sendSync('udp',msg.sync )
+    }
+  });

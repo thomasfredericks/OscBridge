@@ -1,4 +1,4 @@
-
+const os = require("os");
 const { parentPort } = require('worker_threads');
 
 // Import the dgram module
@@ -56,7 +56,7 @@ function oscUdpClose(errorFlag) {
             
             udpStatus.state = "closed";
         }
-        sendSync("udp",udpSync);
+        parentPort.postMessage({ type: 'sync', sync: udpSync }); 
     }
     
 }
@@ -102,27 +102,28 @@ function oscUdpOpen() {
    oscUdp = dgram.createSocket('udp4');
 
    oscUdp.on('error', (err) => {
-    monitorLog("udp error"+error.message);
+    parentPort.postMessage({ type: 'log', message: "udp error"+error.message });
+  
     oscUdpClose(true);
   });
 
    oscUdp.on('listening', () => {
     udpStatus.state = "opened";
     var ipAddresses = getIPAddresses();
-    
-    monitorLog("Started UDP and listening on the following ports: ");
+    parentPort.postMessage({ type: 'log', message: "Started UDP and listening on the following ports: " });
+ 
     ipAddresses.forEach(function (address) {
-        monitorLog("Host: "+address + " Port: " + udpSettings.receivePort);
+        parentPort.postMessage({ type: 'log', message: "Host: "+address + " Port: " + udpSettings.receivePort});
+        
     });
-    storeSetting("udp",udpSettings);
-    sendSync("udp",udpSync);
+    parentPort.postMessage({ type: 'settings', settings: udpSettings });
+    
+    parentPort.postMessage({ type: 'sync', sync: udpSync }); //sendSync("udp",udpSync);
   });
 
   oscUdp.on('message', (buf, rinfo) => {
     //console.log(`server got: ${buf} from ${rinfo.address}:${rinfo.port}`);
-    if ( oscSlip )  {
-        oscSlipSend(buf);
-    }
+    parentPort.postMessage({ type: 'received', buffer : buf }); //sendSync("udp",udpSync);
   });
 
   oscUdp.bind(udpSettings.receivePort);
@@ -139,12 +140,10 @@ parentPort.on('message', (msg) => {
         oscUdpOpen();
     } else if (msg.type === 'send') {
       // Send a UDP message
-      oscUdp.send(msg.data, msg.port, msg.host, (err) => {
+      if ( oscUdp ) oscUdp.send(msg.buffer, udpSettings.sendPort, udpSettings.sendIp, (err) => {
         if (err) {
           parentPort.postMessage({ type: 'error', error: err.message });
-        } else {
-          parentPort.postMessage({ type: 'status', status: 'Message sent' });
-        }
+        } 
       });
     } else if (msg.type === 'close') {
       // Close the UDP socket
