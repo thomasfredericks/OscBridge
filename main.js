@@ -8,8 +8,8 @@ const os = require("os");
 const WebSocket = require("ws");
 const slip = require("slip");
 
-// Import the dgram module
-const dgram = require('dgram');
+
+const udpWorker = new Worker(path.resolve(__dirname, 'udpWorker.js'));
 
 //const serial = require("./serial.js");
 
@@ -95,8 +95,10 @@ async function getSerialPaths() {
 
 
 function oscSlipOnMessage (msg) {
+
+    if ( msg.length % 4 != 0) console.log("Error");
     
-    if ( oscUdp )  oscUdpSend(msg);
+    //if ( oscUdp )  oscUdpSend(msg);
     
     //console.log("A SLIP message was received! Here is it: " + msg);
             // Send the updated messages to the monitoring window
@@ -124,6 +126,14 @@ var slipDecoder = new slip.Decoder({
     maxMessageSize: 209715200,
     bufferSize: 2048
 });
+
+
+function oscSlipSend(buf) {
+   
+    let encoded = slip.encode(buf);
+    
+    oscSlip.write(encoded);
+}
 
 function oscSlipOnClose() {
     // THIS SHOULD ONLY BE CALLLED only IF THE SERIAL WAS PHYSICALLY DISCONNECTED
@@ -198,153 +208,6 @@ function oscSlipOpen(path,baud) {
 }
 
 
-
-// UDP
-/////////
-
-let udpSettings =  {
-    sendPort: 8001,
-    receivePort: 8000,
-    sendIp: "127.0.0.1"
-    
-}
-
-let udpStatus = {
-    state: "closed"
-}
-
-let udpSync = {
-    settings: udpSettings,
-    status: udpStatus,
-    type:"udp"
-}
-
-let oscUdp;
-
-function getIPAddresses() {
-    
-    const interfaces = os.networkInterfaces();
-    const ipAddresses = [];
-    
-    for (let deviceName in interfaces) {
-        let addresses = interfaces[deviceName];
-        for (let i = 0; i < addresses.length; i++) {
-            let addressInfo = addresses[i];
-            if (addressInfo.family === "IPv4" && !addressInfo.internal) {
-                ipAddresses.push(addressInfo.address);
-            }
-        }
-    }
-    
-    return ipAddresses;
-};
-
-
-function oscUdpClose(errorFlag) {
-    errorFlag =  errorFlag || false;
-    if ( oscUdp) {
-        oscUdp.close();
-        oscUdp = undefined;
-        if ( errorFlag ) {
-            udpStatus.state = "error";
-        } else {
-            
-            udpStatus.state = "closed";
-        }
-        sendSync("udp",udpSync);
-    }
-    
-}
-
-function oscUdpOnError(error) {
-    monitorLog("udp error"+error.message);
-    oscUdpClose(true);
-}
-
-function oscUdpOnReady() {
-    // udpConnectButton.innerText = '📢 Disconnect UDP';
-    udpStatus.state = "opened";
-    var ipAddresses = getIPAddresses();
-    
-    monitorLog("Started UDP and listening on the following ports: ");
-    ipAddresses.forEach(function (address) {
-        monitorLog("Host: "+address + " Port: " + udpSettings.receivePort);
-    });
-    storeSetting("udp",udpSettings);
-    sendSync("udp",udpSync);
-    
-}
-
-
-function oscUdpOnMessage(oscMessage) {
-
-            // Send the updated messages to the monitoring window
-
-            if (monitorUdp && mainWindowIsReady) {
-                const now = new Date();
-                const time = now.toLocaleTimeString('en-US', monitorDateOptions);
-                mainWindow.webContents.send('monitor', {type:"osc-message",data:{source:"UDP",time:time,oscMessage:oscMessage}});
-            }
-            
-            if ( oscSlip )  {
-                oscSlip.send(oscMessage);
-            }
-    /*
-            if ( oscUdp )  oscUdp.send(oscMessage);
-    */
-            clients.forEach((client) => {
-                client.send(oscMessage);
-            });
-    
-}
-
-
-function oscUdpSend(data) {
-    oscUdp.send(Buffer.from(data), udpSettings.sendPort , udpSettings.sendIp , (err) => {
-        if (err) {
-            console.log('Error sending message:', err);
-        } else {
-            //console.log('Message sent:', data);
-        }
-        // Close the socket after sending the message
-       // oscUdpClose(true);
-    });
-}
-
-function oscUdpOpen(receivePort, sendIp, sendPort) {
-    
-    oscUdpClose();
-    udpSettings.receivePort = receivePort;
-    udpSettings.sendIp = sendIp;
-    udpSettings.sendPort = sendPort;
-    /*
-    oscUdp = new osc.UDPPort({
-        localAddress: "0.0.0.0",
-        localPort: udpSettings.receivePort,
-        metadata: true,
-        remotePort: udpSettings.sendPort,
-        remoteAddress: udpSettings.sendIp
-    });
-*/
-
-   // Create a UDP socket
-   oscUdp = dgram.createSocket('udp4');
-
-   // CHEAT THAT NEEDS TO BE REMOVED
-
-   oscUdpOnReady();
-
-/*
-    oscUdp.on("ready", oscUdpOnReady);
-    
-    oscUdp.on("message", oscUdpOnMessage);
-    //oscUdp.on("raw", oscUdpOnRaw);
-    
-    oscUdp.on("error", oscUdpOnError);
-    
-    oscUdp.open();
-    */
-}
 
 
 // WEBSOCKET
@@ -623,8 +486,15 @@ async function start() {
 
     
     // LOAD SETTINGS AND AUTO-CONNECT IF SETTINGS ARE FOUND
+
     if ( loadSetting("serial",serialSettings) ) oscSlipOpen(serialSettings.path, serialSettings.baud);
-    if ( loadSetting("udp",udpSettings) ) oscUdpOpen(udpSettings.receivePort, udpSettings.sendIp, udpSettings.sendPort);
+    if ( electronSettings.hasSync("udp") ) {
+        let tempSettings = electronSettings.getSync(udp);
+        udpWorker.postMessage({type: 'open', settings: tempSettings});
+    }
+    /*
+    if ( loadSetting("udp",udpSettings) )  oscUdpOpen(udpSettings.receivePort, udpSettings.sendIp, udpSettings.sendPort);
+    */
     if ( loadSetting("websocket",websocketSettings) ) oscWebSocketOpen(websocketSettings.port) ;
     
 
@@ -664,7 +534,9 @@ app.on('will-quit', () => {
 
     oscSlipClose();
     oscWebSocketClose();
-    oscUdpClose();
+    udpWorker.postMessage({ type: 'close'});
+
+    //oscUdpClose();
 
     // Example string array
     const exitMessagesArray = ["We condemn the invasion of Ukraine by Poutine.", "We condemn the Palestinian apartheid!", "Freedom for all!", "Every worker should have the same rights, even seasonal and internationnal workers", "Be kind to animals!", "Be kind to plants!"];
